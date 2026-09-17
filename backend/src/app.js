@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import { authRouter } from './authentication/auth.routes.js'
+import { empresasRouter } from './modules/empresas/empresas.routes.js'
 
 export function createApp() {
   const app = express()
@@ -13,6 +14,7 @@ export function createApp() {
   })
 
   app.use('/api/auth', authRouter)
+  app.use('/api/empresas', empresasRouter)
 
   app.use((req, res) => {
     res.status(404).json({ error: 'Recurso no encontrado' })

@@ -83,7 +83,7 @@ model UsuarioEmpresaRol {
   empresa Empresa @relation(fields: [empresaId], references: [id])
   rol     Rol     @relation(fields: [rolId], references: [id])
 
-  @@unique([usuarioId, empresaId, rolId])
+  @@unique([usuarioId, empresaId]) // un usuario tiene un único rol activo por empresa
   @@index([empresaId, usuarioId])
   @@map("usuario_empresa_rol")
 }

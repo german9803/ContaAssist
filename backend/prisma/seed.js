@@ -48,10 +48,9 @@ async function seedAdminDemo() {
 
   await prisma.usuarioEmpresaRol.upsert({
     where: {
-      usuarioId_empresaId_rolId: {
+      usuarioId_empresaId: {
         usuarioId: usuario.id,
         empresaId: empresa.id,
-        rolId: rolAdmin.id,
       },
     },
     update: {},

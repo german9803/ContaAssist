@@ -3,7 +3,12 @@ process.env.JWT_REFRESH_SECRET = 'test-refresh-secret'
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { requireAuth, requireEmpresa, requireRol } from '../src/authentication/auth.middleware.js'
+import {
+  requireAuth,
+  requireEmpresa,
+  requireEmpresaParam,
+  requireRol,
+} from '../src/authentication/auth.middleware.js'
 import { signAccessToken } from '../src/authentication/jwt.js'
 
 function mockRes() {
@@ -63,6 +68,27 @@ test('requireEmpresa acepta y fija req.empresaId/req.rolCodigo cuando hay acceso
   requireEmpresa(req, res, () => {})
   assert.equal(req.empresaId, 'emp-1')
   assert.equal(req.rolCodigo, 'CONTADOR')
+})
+
+test('requireEmpresaParam lee el id de req.params y rechaza sin acceso', () => {
+  const req = {
+    params: { id: 'emp-ajena' },
+    usuario: { empresas: [{ empresaId: 'emp-1', rolCodigo: 'ADMINISTRADOR' }] },
+  }
+  const res = mockRes()
+  requireEmpresaParam('id')(req, res, () => assert.fail('no debería llamar next()'))
+  assert.equal(res.statusCode, 403)
+})
+
+test('requireEmpresaParam acepta y fija req.empresaId/req.rolCodigo cuando hay acceso', () => {
+  const req = {
+    params: { id: 'emp-1' },
+    usuario: { empresas: [{ empresaId: 'emp-1', rolCodigo: 'ADMINISTRADOR' }] },
+  }
+  const res = mockRes()
+  requireEmpresaParam('id')(req, res, () => {})
+  assert.equal(req.empresaId, 'emp-1')
+  assert.equal(req.rolCodigo, 'ADMINISTRADOR')
 })
 
 test('requireRol bloquea roles no autorizados', () => {

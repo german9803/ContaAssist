@@ -4,6 +4,7 @@ REST sobre Express. Todas las rutas (excepto auth) requieren JWT y resuelven `em
 
 ## Autenticación
 ```
+POST   /api/auth/registro               (crea usuario + su primera empresa, queda ADMINISTRADOR)
 POST   /api/auth/login
 POST   /api/auth/refresh
 POST   /api/auth/logout
@@ -11,16 +12,22 @@ GET    /api/auth/me
 ```
 
 ## Empresas y usuarios
+Estas rutas resuelven la empresa desde el parámetro `:id` de la URL (no desde `X-Empresa-Id`), validado igual contra las empresas del usuario autenticado.
 ```
 GET    /api/empresas                    (empresas del usuario autenticado)
-POST   /api/empresas                    (ADMINISTRADOR)
+POST   /api/empresas                    (cualquier usuario autenticado; queda ADMINISTRADOR de la nueva empresa)
 GET    /api/empresas/:id
-PATCH  /api/empresas/:id
+PATCH  /api/empresas/:id                (ADMINISTRADOR)
 
 GET    /api/empresas/:id/usuarios
-POST   /api/empresas/:id/usuarios       (invitar/crear usuario con rol)
-PATCH  /api/empresas/:id/usuarios/:usuarioId   (cambiar rol/activo)
+POST   /api/empresas/:id/usuarios       (ADMINISTRADOR; invita/crea usuario con rol — si el email no existe
+                                          se crea con una contraseña temporal devuelta una sola vez en la
+                                          respuesta, ya que todavía no hay envío de correo de invitación)
+PATCH  /api/empresas/:id/usuarios/:usuarioId   (ADMINISTRADOR; cambiar rol/activo — bloqueado si deja la
+                                                 empresa sin ningún ADMINISTRADOR activo)
 ```
+
+Nota: el token de acceso lleva embebida la lista de empresas/roles del usuario (para no consultar la BD en cada request); si se crea una empresa, se invita a un usuario o se le cambia el rol, hay que llamar a `/api/auth/refresh` para que el nuevo token refleje el cambio (dura hasta 15 minutos si no).
 
 ## Terceros
 ```

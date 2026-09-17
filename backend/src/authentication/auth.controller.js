@@ -1,7 +1,42 @@
-import { login, refrescarSesion, obtenerPerfil, AuthError } from './auth.service.js'
+import { login, refrescarSesion, obtenerPerfil, registrar, AuthError } from './auth.service.js'
+import { esEmailValido, esTextoNoVacio } from '../shared/validation.js'
 
-function esEmailValido(email) {
-  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+export async function postRegistro(req, res, next) {
+  try {
+    const { email, password, nombreCompleto, empresaNit, empresaRazonSocial, empresaNombreComercial } =
+      req.body || {}
+
+    if (!esEmailValido(email)) {
+      return res.status(400).json({ error: 'Email inválido' })
+    }
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' })
+    }
+    if (!esTextoNoVacio(nombreCompleto, { max: 150 })) {
+      return res.status(400).json({ error: 'nombreCompleto es requerido' })
+    }
+    if (!esTextoNoVacio(empresaNit, { max: 20 })) {
+      return res.status(400).json({ error: 'empresaNit es requerido' })
+    }
+    if (!esTextoNoVacio(empresaRazonSocial, { max: 200 })) {
+      return res.status(400).json({ error: 'empresaRazonSocial es requerido' })
+    }
+
+    const resultado = await registrar({
+      email,
+      password,
+      nombreCompleto,
+      empresaNit,
+      empresaRazonSocial,
+      empresaNombreComercial,
+    })
+    res.status(201).json(resultado)
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return res.status(error.status).json({ error: error.message })
+    }
+    next(error)
+  }
 }
 
 export async function postLogin(req, res, next) {
