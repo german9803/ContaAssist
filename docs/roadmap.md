@@ -8,7 +8,7 @@ Cada fase deja una base funcional para la siguiente. No se avanza a la siguiente
 | 2 | Configuración inicial del proyecto (frontend Vite+React+Tailwind, backend Express, Prisma + PostgreSQL, estructura de carpetas) | **Completa** |
 | 3 | Autenticación (JWT, login, roles base) | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 4 | Empresas, usuarios y roles (multiempresa funcional) | **Completa** — probada de punta a punta contra PostgreSQL local |
-| 5 | Dashboard | Pendiente |
+| 5 | Dashboard | **Completa** — verificada manualmente en navegador por el usuario |
 | 6 | Centro de carga (subida de archivos, registro de cargas) | Pendiente |
 | 7 | Documentos y procesamiento (parsers, modelo interno) | Pendiente |
 | 8 | Motor de validaciones | Pendiente |
@@ -47,6 +47,14 @@ Módulo `backend/src/modules/empresas/` (más el helper `modules/usuarios/usuari
 Se corrigió además un defecto de diseño de Fase 3: la restricción de unicidad de `usuario_empresa_rol` estaba definida como `(usuario, empresa, rol)`, lo que permitía —incorrectamente— que un mismo usuario tuviera dos roles simultáneos en la misma empresa. Se corrigió a `(usuario, empresa)` vía migración (`fix_usuario_empresa_unique`).
 
 **Incidente durante la migración (transparencia):** al generar el SQL de esa migración con `prisma migrate diff`, se pasó por error la URL de la base de datos real como `--shadow-database-url` (que Prisma espera vacía para hacer el cálculo). Esto vació las tablas de `contaassist` (estructura intacta, solo se perdieron las filas: catálogo de roles y el usuario/empresa demo del seed). Sin impacto real — era data de desarrollo local — se corrigió corriendo `npm run prisma:seed` de nuevo. Aprendizaje aplicado: no volver a usar la URL de una base con datos reales como shadow database.
+
+## Nota sobre Fase 5
+
+Se construyó el shell real de la aplicación que la Fase 2 había dejado pendiente: `AuthProvider` + cliente API (`frontend/src/lib/api.js`, con refresh silencioso de token en 401), rutas protegidas, login y registro (consumen `POST /api/auth/login` y `/registro`), layout con sidebar (los 15 módulos de la sección 10; los no implementados muestran un `PlaceholderPage` honesto con la fase del roadmap que los habilita, no datos simulados) y topbar con selector de empresa cuando el usuario pertenece a varias.
+
+El Dashboard (`DashboardPage.jsx`) muestra únicamente datos reales: empresa activa, rol del usuario, equipo (consumiendo el backend de Fase 4) y una alerta genuina cuando la empresa tiene un solo administrador activo. Las métricas de documentos de la sección 18 (recibidos, procesados, pendientes, aprobados, etc.) se muestran como placeholders explícitos ("—", con la fase que los habilita) en vez de inventar ceros que parezcan datos reales, porque el modelo de `documentos` todavía no existe (llega en Fase 7). Se agregó también una página de Configuración → Equipo (listar/invitar/cambiar rol) que le da uso real a la API de Fase 4.
+
+No se pudo probar en un navegador automatizado (la extensión Claude in Chrome no quedó conectada en esta sesión); se verificó con `npm run build` + `npm run lint` limpios, y el usuario confirmó manualmente que el flujo de registro funciona correctamente.
 
 ## Información que el usuario debe aportar antes de Fase 14
 

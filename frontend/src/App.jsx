@@ -1,19 +1,32 @@
-import { FileStack } from 'lucide-react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { AppLayout } from './components/layout/AppLayout.jsx'
+import { ProtectedRoute } from './components/ProtectedRoute.jsx'
+import { LoginPage } from './pages/LoginPage.jsx'
+import { RegistroPage } from './pages/RegistroPage.jsx'
+import { DashboardPage } from './pages/DashboardPage.jsx'
+import { PlaceholderPage } from './pages/PlaceholderPage.jsx'
+import { EquipoPage } from './pages/configuracion/EquipoPage.jsx'
+import { MODULOS } from './lib/navegacion.js'
 
 function App() {
   return (
-    <div className="min-h-svh flex flex-col items-center justify-center bg-slate-50 text-slate-800">
-      <div className="flex items-center gap-3 text-indigo-600">
-        <FileStack size={40} strokeWidth={1.75} />
-        <h1 className="text-4xl font-semibold tracking-tight">ContaAssist</h1>
-      </div>
-      <p className="mt-2 text-slate-500">
-        Plataforma de preparación y transformación de información contable
-      </p>
-      <span className="mt-8 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm text-slate-400">
-        Frontend inicializado — módulos en construcción
-      </span>
-    </div>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/registro" element={<RegistroPage />} />
+
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/configuracion" element={<EquipoPage />} />
+
+          {MODULOS.filter((m) => !m.implementado).map(({ path, label, fase, nota }) => (
+            <Route key={path} path={path} element={<PlaceholderPage titulo={label} fase={fase} nota={nota} />} />
+          ))}
+        </Route>
+      </Route>
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
 
