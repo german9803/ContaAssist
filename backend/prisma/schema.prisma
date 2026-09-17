@@ -10,3 +10,80 @@ datasource db {
   provider = "sqlserver"
   url      = env("DATABASE_URL")
 }
+
+// ── Fase 3/4: seguridad y organización (ver /docs/database.md §1) ──────────
+
+model Empresa {
+  id              String   @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  nit             String   @unique @db.NVarChar(20)
+  razonSocial     String   @map("razon_social") @db.NVarChar(200)
+  nombreComercial String?  @map("nombre_comercial") @db.NVarChar(200)
+  activa          Boolean  @default(true)
+  creadoEn        DateTime @default(dbgenerated("sysutcdatetime()")) @map("creado_en") @db.DateTime2
+
+  usuarioEmpresaRoles UsuarioEmpresaRol[]
+
+  @@map("empresas")
+}
+
+model Rol {
+  id     Int    @id @default(autoincrement())
+  codigo String @unique @db.NVarChar(30) // ADMINISTRADOR, AUXILIAR_CONTABLE, CONTADOR, CONSULTA
+  nombre String @db.NVarChar(60)
+
+  rolPermisos         RolPermiso[]
+  usuarioEmpresaRoles UsuarioEmpresaRol[]
+
+  @@map("roles")
+}
+
+model Permiso {
+  id     Int    @id @default(autoincrement())
+  codigo String @unique @db.NVarChar(60) // ej. documento.aprobar, exportacion.generar
+  modulo String @db.NVarChar(40)
+
+  rolPermisos RolPermiso[]
+
+  @@map("permisos")
+}
+
+model RolPermiso {
+  rolId     Int @map("rol_id")
+  permisoId Int @map("permiso_id")
+
+  rol     Rol     @relation(fields: [rolId], references: [id])
+  permiso Permiso @relation(fields: [permisoId], references: [id])
+
+  @@id([rolId, permisoId])
+  @@map("rol_permisos")
+}
+
+model Usuario {
+  id             String    @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  email          String    @unique @db.NVarChar(150)
+  passwordHash   String    @map("password_hash") @db.NVarChar(200)
+  nombreCompleto String    @map("nombre_completo") @db.NVarChar(150)
+  activo         Boolean   @default(true)
+  ultimoLogin    DateTime? @map("ultimo_login") @db.DateTime2
+  creadoEn       DateTime  @default(dbgenerated("sysutcdatetime()")) @map("creado_en") @db.DateTime2
+
+  empresaRoles UsuarioEmpresaRol[]
+
+  @@map("usuarios")
+}
+
+model UsuarioEmpresaRol {
+  id        String  @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  usuarioId String  @map("usuario_id") @db.UniqueIdentifier
+  empresaId String  @map("empresa_id") @db.UniqueIdentifier
+  rolId     Int     @map("rol_id")
+  activo    Boolean @default(true)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+  rol     Rol     @relation(fields: [rolId], references: [id])
+
+  @@unique([usuarioId, empresaId, rolId])
+  @@index([empresaId, usuarioId])
+  @@map("usuario_empresa_rol")
+}

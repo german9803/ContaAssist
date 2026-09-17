@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import { authRouter } from './authentication/auth.routes.js'
 
 export function createApp() {
   const app = express()
@@ -9,6 +10,20 @@ export function createApp() {
 
   app.get('/health', (req, res) => {
     res.json({ status: 'ok', service: 'contaassist-backend' })
+  })
+
+  app.use('/api/auth', authRouter)
+
+  app.use((req, res) => {
+    res.status(404).json({ error: 'Recurso no encontrado' })
+  })
+
+  // Manejador de errores centralizado: nunca expone stack traces ni detalles
+  // internos al cliente (sección 22/security.md — manejo seguro de errores).
+  // eslint-disable-next-line no-unused-vars
+  app.use((error, req, res, next) => {
+    console.error(error)
+    res.status(500).json({ error: 'Error interno del servidor' })
   })
 
   return app
