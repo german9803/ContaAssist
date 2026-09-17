@@ -1,0 +1,12 @@
+// Modelo de datos de ContaAssist — ver /docs/database.md
+// Los modelos se agregan de forma incremental por fase (empresas/usuarios en Fase 4,
+// documentos en Fase 7, etc.), no se genera el esquema completo de una sola vez.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
