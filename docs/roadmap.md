@@ -5,8 +5,8 @@ Cada fase deja una base funcional para la siguiente. No se avanza a la siguiente
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Arquitectura y documentación | **Completa** |
-| 2 | Configuración inicial del proyecto (frontend Vite+React+Tailwind, backend Express, Prisma + SQL Server, estructura de carpetas) | **Completa** |
-| 3 | Autenticación (JWT, login, roles base) | **Código completo — pendiente prueba end-to-end** (falta BD SQL Server accesible; ver nota abajo) |
+| 2 | Configuración inicial del proyecto (frontend Vite+React+Tailwind, backend Express, Prisma + PostgreSQL, estructura de carpetas) | **Completa** |
+| 3 | Autenticación (JWT, login, roles base) | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 4 | Empresas, usuarios y roles (multiempresa funcional) | Pendiente |
 | 5 | Dashboard | Pendiente |
 | 6 | Centro de carga (subida de archivos, registro de cargas) | Pendiente |
@@ -25,7 +25,20 @@ Cada fase deja una base funcional para la siguiente. No se avanza a la siguiente
 
 ## Nota sobre Fase 3
 
-El módulo de autenticación (`backend/src/authentication/`) está implementado y cubierto por pruebas unitarias (`npm test`: hashing, JWT, middlewares de autorización — 13/13 OK), pero **no se ha probado contra una base de datos real** porque este entorno no tenía Docker ni SQL Server. Falta instalar Docker Desktop manualmente (requiere contraseña interactiva de macOS) y levantar un contenedor de SQL Server/Azure SQL Edge para: aplicar `prisma migrate dev`, correr `prisma:seed` y probar el flujo de login de punta a punta.
+El módulo de autenticación (`backend/src/authentication/`) está implementado, cubierto por pruebas unitarias (`npm test`: hashing, JWT, middlewares de autorización — 13/13 OK) y probado de punta a punta contra una base de datos real: login, rechazo de credenciales inválidas, `GET /me` autenticado y `POST /refresh` funcionando contra PostgreSQL local.
+
+**Cambio de motor de base de datos:** se migró de SQL Server a PostgreSQL (ver nota al inicio de `database.md`) porque este entorno de desarrollo (Mac, sin Docker) no podía correr SQL Server sin instalar Docker Desktop, algo que requiere una contraseña interactiva de macOS que no se puede dar por línea de comandos. PostgreSQL se instala nativo vía Homebrew (`brew install postgresql@16`, sin sudo) y tiene el conector más maduro de Prisma.
+
+**Entorno de desarrollo local (para reproducirlo en otra máquina):**
+```
+brew install postgresql@16
+brew services start postgresql@16
+psql postgres -c "CREATE ROLE contaassist LOGIN PASSWORD 'contaassist_dev';"
+psql postgres -c "ALTER ROLE contaassist CREATEDB;"
+psql postgres -c "CREATE DATABASE contaassist OWNER contaassist;"
+# en backend/.env: DATABASE_URL="postgresql://contaassist:contaassist_dev@localhost:5432/contaassist?schema=public"
+cd backend && npx prisma migrate dev && npm run prisma:seed
+```
 
 ## Información que el usuario debe aportar antes de Fase 14
 

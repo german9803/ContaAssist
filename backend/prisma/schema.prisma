@@ -7,19 +7,19 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlserver"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 // ── Fase 3/4: seguridad y organización (ver /docs/database.md §1) ──────────
 
 model Empresa {
-  id              String   @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
-  nit             String   @unique @db.NVarChar(20)
-  razonSocial     String   @map("razon_social") @db.NVarChar(200)
-  nombreComercial String?  @map("nombre_comercial") @db.NVarChar(200)
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nit             String   @unique @db.VarChar(20)
+  razonSocial     String   @map("razon_social") @db.VarChar(200)
+  nombreComercial String?  @map("nombre_comercial") @db.VarChar(200)
   activa          Boolean  @default(true)
-  creadoEn        DateTime @default(dbgenerated("sysutcdatetime()")) @map("creado_en") @db.DateTime2
+  creadoEn        DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
 
   usuarioEmpresaRoles UsuarioEmpresaRol[]
 
@@ -28,8 +28,8 @@ model Empresa {
 
 model Rol {
   id     Int    @id @default(autoincrement())
-  codigo String @unique @db.NVarChar(30) // ADMINISTRADOR, AUXILIAR_CONTABLE, CONTADOR, CONSULTA
-  nombre String @db.NVarChar(60)
+  codigo String @unique @db.VarChar(30) // ADMINISTRADOR, AUXILIAR_CONTABLE, CONTADOR, CONSULTA
+  nombre String @db.VarChar(60)
 
   rolPermisos         RolPermiso[]
   usuarioEmpresaRoles UsuarioEmpresaRol[]
@@ -39,8 +39,8 @@ model Rol {
 
 model Permiso {
   id     Int    @id @default(autoincrement())
-  codigo String @unique @db.NVarChar(60) // ej. documento.aprobar, exportacion.generar
-  modulo String @db.NVarChar(40)
+  codigo String @unique @db.VarChar(60) // ej. documento.aprobar, exportacion.generar
+  modulo String @db.VarChar(40)
 
   rolPermisos RolPermiso[]
 
@@ -59,13 +59,13 @@ model RolPermiso {
 }
 
 model Usuario {
-  id             String    @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
-  email          String    @unique @db.NVarChar(150)
-  passwordHash   String    @map("password_hash") @db.NVarChar(200)
-  nombreCompleto String    @map("nombre_completo") @db.NVarChar(150)
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email          String    @unique @db.VarChar(150)
+  passwordHash   String    @map("password_hash") @db.VarChar(200)
+  nombreCompleto String    @map("nombre_completo") @db.VarChar(150)
   activo         Boolean   @default(true)
-  ultimoLogin    DateTime? @map("ultimo_login") @db.DateTime2
-  creadoEn       DateTime  @default(dbgenerated("sysutcdatetime()")) @map("creado_en") @db.DateTime2
+  ultimoLogin    DateTime? @map("ultimo_login") @db.Timestamptz(6)
+  creadoEn       DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
 
   empresaRoles UsuarioEmpresaRol[]
 
@@ -73,9 +73,9 @@ model Usuario {
 }
 
 model UsuarioEmpresaRol {
-  id        String  @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
-  usuarioId String  @map("usuario_id") @db.UniqueIdentifier
-  empresaId String  @map("empresa_id") @db.UniqueIdentifier
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId String  @map("usuario_id") @db.Uuid
+  empresaId String  @map("empresa_id") @db.Uuid
   rolId     Int     @map("rol_id")
   activo    Boolean @default(true)
 
