@@ -10,7 +10,7 @@ Cada fase deja una base funcional para la siguiente. No se avanza a la siguiente
 | 4 | Empresas, usuarios y roles (multiempresa funcional) | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 5 | Dashboard | **Completa** — verificada manualmente en navegador por el usuario |
 | 6 | Centro de carga (subida de archivos, registro de cargas) | **Completa** — probada de punta a punta contra PostgreSQL local y confirmada por el usuario en navegador |
-| 7 | Documentos y procesamiento (parsers, modelo interno) | Pendiente |
+| 7 | Documentos y procesamiento (parsers, modelo interno) | **Completa** — probada de punta a punta contra PostgreSQL local y confirmada por el usuario en navegador |
 | 8 | Motor de validaciones | Pendiente |
 | 9 | Compras y ventas (módulos de negocio sobre `documentos`) | Pendiente |
 | 10 | Terceros | Pendiente |
@@ -65,6 +65,22 @@ Frontend: página real de Centro de Carga (`CentroCargaPage.jsx`) con selector d
 **Bug real encontrado y corregido durante las pruebas E2E:** el índice único `(empresa_id, hash_sha256)` en `archivos_origen` competía con el intento de guardar una fila `ERROR` para reportar un archivo duplicado (mismo hash que uno ya `RECIBIDO`) → violación de constraint → 500. Se corrigió no persistiendo filas para archivos rechazados/duplicados (nunca se "recibieron" de verdad); se reportan solo en la respuesta de la petición de subida. Limitación conocida: no queda historial por-archivo de rechazos pasados, solo el conteo agregado (`cantidadArchivos` vs. archivos realmente guardados) en `cargas`.
 
 Probado de punta a punta contra PostgreSQL real: lote mixto (2 válidos + 1 duplicado intra-lote + 1 con contenido inválido), duplicado entre cargas distintas, descarga con verificación de integridad del contenido, bloqueo de rol `CONSULTA` al subir (403) y al ver auditoría (403), y registro correcto en `auditoria`. Confirmado también manualmente por el usuario en el navegador.
+
+## Nota sobre Fase 7
+
+Motor de procesamiento (`backend/src/document-processing/`), conectado automáticamente al final del flujo de carga de Fase 6 (sin cola/worker — se procesa en el mismo request). Cobertura real por tipo de archivo:
+- **CSV/XLSX**: plantilla propia de ContaAssist (columnas `tipo_documento,numero_documento,fecha_emision,nit_tercero,razon_social_tercero,subtotal,iva,porcentaje_iva,total` — un formato que definimos nosotros, no de un tercero, así que sí se podía especificar sin violar la regla de "no inventar formatos externos"). Una fila inválida no descarta las demás.
+- **XML**: factura electrónica DIAN (UBL 2.1), el estándar público colombiano — extrae número, fecha, NIT/razón social del emisor, subtotal, IVA y total reales.
+- **PDF**: extrae el texto embebido real (sin OCR/IA) para revisión manual.
+- **Imágenes (JPG/PNG) y XLS**: crean el documento vacío listo para completar a mano — OCR es Fase 16; ExcelJS (la librería del stack) no soporta el binario legado `.xls`, solo `.xlsx`.
+
+Modelos agregados: `Tercero` (versión mínima — resolución por NIT únicamente, sin la UI/CRUD de Fase 10), `Documento`, `Impuesto`, `DocumentoImpuesto`. Se dejaron fuera a propósito `documento_detalles`, `retenciones`/`documento_retenciones` y las FK de `documentos` a cuenta contable/centro de costo/forma de pago, porque esos catálogos no existen todavía.
+
+Nuevo módulo `/api/documentos` (listar con filtros, detalle, editar con auditoría por campo, ver archivo original) y páginas de frontend Documentos (lista) y Documento (detalle/edición — el panel "documento original | datos extraídos" de la sección 14).
+
+**Dos bugs reales encontrados por el usuario en pruebas manuales y corregidos:**
+1. `api.subirCarga` no existía como tal — la función se había exportado suelta en `api.js` en vez de como propiedad del objeto `api`, y `CentroCargaPage` la llamaba como `api.subirCarga(...)`. El error real quedaba oculto detrás de un mensaje genérico porque el manejo de errores del frontend usaba `err instanceof ApiError` en 7 lugares — un patrón frágil bajo HMR de Vite (un módulo recargado en caliente puede duplicarse en el grafo de módulos del navegador, rompiendo `instanceof`). Se reemplazó por un helper `mensajeDeError(err, fallback)` que usa `err?.message` en los 7 lugares.
+2. Un CSV real (de sample-files.com, con una línea de comentario y columnas que no seguían la plantilla) tumbaba `csv-parse` con una excepción sin atrapar, que crasheaba la petición completa a mitad de camino y dejaba la carga y el archivo atascados en estado `PROCESANDO` para siempre. Se corrigió en tres niveles: el parser de CSV ahora tolera comentarios (`comment: '#'`) y conteo de columnas irregular (`relax_column_count`) y nunca lanza (igual se corrigió `xlsxParser.js` preventivamente); `procesarArchivo` nunca lanza (try/catch envolvente); y el loop de `crearCarga` en `cargas.service.js` envuelve cada archivo individualmente, así que un fallo inesperado en cualquier punto marca ese archivo como error sin tumbar el resto del lote ni dejar la carga sin estado final.
 
 ## Información que el usuario debe aportar antes de Fase 14
 

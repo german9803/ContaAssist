@@ -9,6 +9,12 @@ const ROLES = [
   { codigo: 'CONSULTA', nombre: 'Consulta' },
 ]
 
+const IMPUESTOS = [
+  { codigo: 'IVA_19', nombre: 'IVA 19%', porcentaje: 19 },
+  { codigo: 'IVA_5', nombre: 'IVA 5%', porcentaje: 5 },
+  { codigo: 'IVA_0', nombre: 'IVA 0%', porcentaje: 0 },
+]
+
 async function seedRoles() {
   for (const rol of ROLES) {
     await prisma.rol.upsert({
@@ -18,6 +24,17 @@ async function seedRoles() {
     })
   }
   console.log(`Roles: ${ROLES.length} sincronizados`)
+}
+
+async function seedImpuestos() {
+  for (const impuesto of IMPUESTOS) {
+    await prisma.impuesto.upsert({
+      where: { codigo: impuesto.codigo },
+      update: { nombre: impuesto.nombre, porcentaje: impuesto.porcentaje },
+      create: impuesto,
+    })
+  }
+  console.log(`Impuestos: ${IMPUESTOS.length} sincronizados`)
 }
 
 async function seedAdminDemo() {
@@ -62,6 +79,7 @@ async function seedAdminDemo() {
 
 async function main() {
   await seedRoles()
+  await seedImpuestos()
   await seedAdminDemo()
 }
 

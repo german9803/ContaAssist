@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { UserPlus } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { api, ApiError } from '../../lib/api.js'
+import { api, mensajeDeError } from '../../lib/api.js'
 
 const ROLES = ['ADMINISTRADOR', 'AUXILIAR_CONTABLE', 'CONTADOR', 'CONSULTA']
 const INVITACION_INICIAL = { email: '', nombreCompleto: '', rolCodigo: 'AUXILIAR_CONTABLE' }
@@ -43,7 +43,7 @@ export function EquipoPage() {
       setForm(INVITACION_INICIAL)
       await cargarEquipo()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo invitar al usuario')
+      setError(mensajeDeError(err, 'No se pudo invitar al usuario'))
     } finally {
       setEnviando(false)
     }
@@ -56,7 +56,7 @@ export function EquipoPage() {
       await cargarEquipo()
       await refrescarPerfil()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo cambiar el rol')
+      setError(mensajeDeError(err, 'No se pudo cambiar el rol'))
     }
   }
 
@@ -66,7 +66,7 @@ export function EquipoPage() {
       await api.actualizarMembresia(empresaId, usuarioId, { activo })
       await cargarEquipo()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo actualizar el usuario')
+      setError(mensajeDeError(err, 'No se pudo actualizar el usuario'))
     }
   }
 

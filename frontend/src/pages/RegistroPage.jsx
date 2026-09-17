@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FileStack } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
-import { ApiError } from '../lib/api.js'
+import { mensajeDeError } from '../lib/api.js'
 
 const CAMPO_INICIAL = {
   nombreCompleto: '',
@@ -30,7 +30,7 @@ export function RegistroPage() {
       await registrar(form)
       navigate('/', { replace: true })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No fue posible completar el registro')
+      setError(mensajeDeError(err, 'No fue posible completar el registro'))
     }
   }
 

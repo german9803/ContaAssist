@@ -7,7 +7,6 @@ import { StatTile } from '../components/StatTile.jsx'
 import { EstadoBadge } from '../components/carga/EstadoBadge.jsx'
 
 const PIPELINE = [
-  { label: 'Procesados', nota: 'Fase 7' },
   { label: 'Pendientes de revisión', nota: 'Fase 8' },
   { label: 'Con errores', nota: 'Fase 8' },
   { label: 'Aprobados', nota: 'Fase 8' },
@@ -20,6 +19,7 @@ export function DashboardPage() {
   const [equipo, setEquipo] = useState(null)
   const [cargas, setCargas] = useState(null)
   const [totalCargas, setTotalCargas] = useState(null)
+  const [totalDocumentos, setTotalDocumentos] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -27,6 +27,7 @@ export function DashboardPage() {
     setEquipo(null)
     setCargas(null)
     setTotalCargas(null)
+    setTotalDocumentos(null)
     api
       .listarUsuariosEmpresa(empresaId)
       .then((data) => !cancelado && setEquipo(data))
@@ -39,6 +40,10 @@ export function DashboardPage() {
         setTotalCargas(res.total)
       })
       .catch(() => !cancelado && setError('No se pudo cargar el historial de cargas'))
+    api
+      .listarDocumentos({ pageSize: 1 })
+      .then((res) => !cancelado && setTotalDocumentos(res.total))
+      .catch(() => !cancelado && setError('No se pudo cargar el conteo de documentos'))
     return () => {
       cancelado = true
     }
@@ -73,6 +78,7 @@ export function DashboardPage() {
         <h2 className="mb-3 text-sm font-semibold text-slate-600">Documentos</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
           <StatTile label="Cargas recibidas" value={totalCargas} nota="Centro de carga" />
+          <StatTile label="Documentos procesados" value={totalDocumentos} nota="Extracción automática" />
           {PIPELINE.map((tile) => (
             <StatTile key={tile.label} label={tile.label} value={null} nota={tile.nota} />
           ))}

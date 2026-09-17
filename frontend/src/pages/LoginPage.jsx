@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { FileStack } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
-import { ApiError } from '../lib/api.js'
+import { mensajeDeError } from '../lib/api.js'
 
 export function LoginPage() {
   const { login, cargando } = useAuth()
@@ -20,7 +20,7 @@ export function LoginPage() {
       await login(email, password)
       navigate(location.state?.desde || '/', { replace: true })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No fue posible iniciar sesión')
+      setError(mensajeDeError(err, 'No fue posible iniciar sesión'))
     }
   }
 

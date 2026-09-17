@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { FileText } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
-import { api, ApiError } from '../lib/api.js'
+import { api, mensajeDeError } from '../lib/api.js'
 import { TIPOS_ORIGEN } from '../lib/tiposArchivo.js'
 import { DropzoneArchivos } from '../components/carga/DropzoneArchivos.jsx'
 import { EstadoBadge } from '../components/carga/EstadoBadge.jsx'
@@ -47,7 +47,7 @@ export function CentroCargaPage() {
       setArchivos([])
       cargarHistorial()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo completar la carga')
+      setError(mensajeDeError(err, 'No se pudo completar la carga'))
     } finally {
       setSubiendo(false)
     }

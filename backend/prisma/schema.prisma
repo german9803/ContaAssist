@@ -25,6 +25,8 @@ model Empresa {
   cargas              Carga[]
   archivosOrigen      ArchivoOrigen[]
   auditoria           Auditoria[]
+  terceros            Tercero[]
+  documentos          Documento[]
 
   @@map("empresas")
 }
@@ -128,8 +130,93 @@ model ArchivoOrigen {
   carga   Carga   @relation(fields: [cargaId], references: [id])
   empresa Empresa @relation(fields: [empresaId], references: [id])
 
+  documentos Documento[]
+
   @@unique([empresaId, hashSha256]) // detecta archivo duplicado dentro de la misma empresa
   @@map("archivos_origen")
+}
+
+// ── Fase 7: documentos y procesamiento (ver /docs/database.md §2 y §4) ──────
+//
+// Alcance de esta fase: solo las tablas que los parsers de CSV/XLSX/XLS/XML/PDF
+// ya pueden poblar de verdad. `documento_detalles`, `retenciones` y las FK a
+// cuenta_contable/centro_costo/forma_pago quedan para cuando existan esos
+// catálogos (Fase 9/11) — no tiene sentido crear columnas que nadie llena aún.
+
+model Tercero {
+  id                 String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empresaId          String  @map("empresa_id") @db.Uuid
+  tipoIdentificacion String  @map("tipo_identificacion") @db.VarChar(10) // NIT, CC, CE, PAS
+  identificacion     String  @db.VarChar(20)
+  dv                 String? @db.Char(1)
+  razonSocial        String  @map("razon_social") @db.VarChar(200)
+  tipoTercero        String  @map("tipo_tercero") @db.VarChar(20) // CLIENTE, PROVEEDOR, AMBOS, OTRO
+  email              String? @db.VarChar(150)
+  telefono           String? @db.VarChar(30)
+  ciudad             String? @db.VarChar(80)
+  activo             Boolean @default(true)
+
+  empresa    Empresa     @relation(fields: [empresaId], references: [id])
+  documentos Documento[]
+
+  @@unique([empresaId, tipoIdentificacion, identificacion])
+  @@index([empresaId, tipoTercero])
+  @@map("terceros")
+}
+
+model Documento {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empresaId        String    @map("empresa_id") @db.Uuid
+  archivoOrigenId  String?   @map("archivo_origen_id") @db.Uuid // null si es entrada manual futura
+  tipoDocumento    String    @map("tipo_documento") @db.VarChar(30) // FACTURA_COMPRA, FACTURA_VENTA, NOTA_CREDITO, NOTA_DEBITO, EXTRACTO_BANCARIO, OTRO
+  numeroDocumento  String?   @map("numero_documento") @db.VarChar(50)
+  prefijo          String?   @db.VarChar(10)
+  fechaEmision     DateTime? @map("fecha_emision") @db.Date
+  fechaVencimiento DateTime? @map("fecha_vencimiento") @db.Date
+  terceroId        String?   @map("tercero_id") @db.Uuid
+  subtotal         Decimal?  @db.Decimal(18, 2)
+  totalImpuestos   Decimal?  @map("total_impuestos") @db.Decimal(18, 2)
+  totalRetenciones Decimal?  @map("total_retenciones") @db.Decimal(18, 2)
+  total            Decimal?  @db.Decimal(18, 2)
+  moneda           String    @default("COP") @db.Char(3)
+  estado           String    @db.VarChar(30) // ver docs/data-flow.md
+  textoExtraido    String?   @map("texto_extraido") // texto plano de PDF, para revisión manual (sin OCR/IA)
+  observaciones    String?   @db.VarChar(1000)
+  creadoEn         DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  empresa       Empresa        @relation(fields: [empresaId], references: [id])
+  archivoOrigen ArchivoOrigen? @relation(fields: [archivoOrigenId], references: [id])
+  tercero       Tercero?       @relation(fields: [terceroId], references: [id])
+  impuestos     DocumentoImpuesto[]
+
+  @@index([empresaId, estado])
+  @@index([empresaId, terceroId])
+  @@map("documentos")
+}
+
+model Impuesto {
+  id         Int     @id @default(autoincrement())
+  codigo     String  @unique @db.VarChar(20) // IVA_19, IVA_5, IVA_0, INC
+  nombre     String  @db.VarChar(60)
+  porcentaje Decimal @db.Decimal(6, 3)
+
+  documentoImpuestos DocumentoImpuesto[]
+
+  @@map("impuestos")
+}
+
+model DocumentoImpuesto {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentoId String  @map("documento_id") @db.Uuid
+  impuestoId  Int     @map("impuesto_id")
+  base        Decimal @db.Decimal(18, 2)
+  valor       Decimal @db.Decimal(18, 2)
+
+  documento Documento @relation(fields: [documentoId], references: [id])
+  impuesto  Impuesto  @relation(fields: [impuestoId], references: [id])
+
+  @@index([documentoId])
+  @@map("documento_impuestos")
 }
 
 // ── Auditoría (sección 23) ───────────────────────────────────────────────────

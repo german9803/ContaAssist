@@ -10,6 +10,16 @@ export class ApiError extends Error {
   }
 }
 
+// Preferir esto sobre `err instanceof ApiError` en componentes: con Vite/HMR,
+// un módulo editado en caliente puede quedar duplicado en el grafo de módulos
+// del navegador, y entonces `instanceof` compara contra una clase distinta a
+// la que realmente lanzó el error — silenciosamente cae a un mensaje genérico
+// aunque el error sí traiga un mensaje útil. Cualquier Error (ApiError, uno
+// de red, uno de runtime) trae `.message`; solo hace falta el fallback.
+export function mensajeDeError(err, fallback) {
+  return err?.message || fallback
+}
+
 let refrescando = null
 
 async function refrescarTokenSilencioso() {
@@ -71,7 +81,7 @@ async function request(path, { method = 'GET', body, sinAuth = false, sinEmpresa
 // Sube archivos con progreso real (fetch no expone eventos de progreso de
 // subida en todos los navegadores) — usa XHR directamente, pero mantiene los
 // mismos headers/convenciones (auth + X-Empresa-Id) que `request`.
-export function subirCarga({ tipoOrigen, archivos, onProgress }) {
+function subirCarga({ tipoOrigen, archivos, onProgress }) {
   return new Promise((resolve, reject) => {
     const formData = new FormData()
     formData.append('tipoOrigen', tipoOrigen)
@@ -109,6 +119,8 @@ export function subirCarga({ tipoOrigen, archivos, onProgress }) {
 }
 
 export const api = {
+  subirCarga,
+
   registro: (datos) => request('/api/auth/registro', { method: 'POST', body: datos, sinAuth: true, sinEmpresa: true }),
   login: (datos) => request('/api/auth/login', { method: 'POST', body: datos, sinAuth: true, sinEmpresa: true }),
   refresh: (refreshToken) =>
@@ -133,12 +145,12 @@ export const api = {
   obtenerCarga: (id) => request(`/api/cargas/${id}`),
   listarArchivosDeCarga: (id) => request(`/api/cargas/${id}/archivos`),
 
-  // El endpoint requiere Authorization + X-Empresa-Id, así que no puede ser un
-  // <a href> plano: se pide como blob autenticado y se abre en una pestaña.
-  async abrirArchivoOriginal(cargaId, archivoId) {
+  // Los endpoints de archivo requieren Authorization + X-Empresa-Id, así que no
+  // pueden ser un <a href> plano: se piden como blob autenticado y se abren en pestaña.
+  async abrirArchivo(path) {
     const token = localStorage.getItem(STORAGE_KEYS.accessToken)
     const empresaId = localStorage.getItem(STORAGE_KEYS.empresaId)
-    const res = await fetch(`${API_URL}/api/cargas/${cargaId}/archivos/${archivoId}/descarga`, {
+    const res = await fetch(`${API_URL}${path}`, {
       headers: { Authorization: `Bearer ${token}`, 'X-Empresa-Id': empresaId },
     })
     if (!res.ok) throw new ApiError('No se pudo abrir el archivo', res.status)
@@ -147,4 +159,17 @@ export const api = {
     window.open(url, '_blank')
     setTimeout(() => URL.revokeObjectURL(url), 60_000)
   },
+  abrirArchivoOriginal(cargaId, archivoId) {
+    return this.abrirArchivo(`/api/cargas/${cargaId}/archivos/${archivoId}/descarga`)
+  },
+  abrirArchivoOriginalDeDocumento(documentoId) {
+    return this.abrirArchivo(`/api/documentos/${documentoId}/archivo-original`)
+  },
+
+  listarDocumentos: (params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return request(`/api/documentos${query ? `?${query}` : ''}`)
+  },
+  obtenerDocumento: (id) => request(`/api/documentos/${id}`),
+  actualizarDocumento: (id, datos) => request(`/api/documentos/${id}`, { method: 'PATCH', body: datos }),
 }

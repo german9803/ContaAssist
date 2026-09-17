@@ -21,7 +21,7 @@ import {
 export const MODULOS = [
   { path: '/', label: 'Inicio', icon: LayoutDashboard, implementado: true },
   { path: '/centro-carga', label: 'Centro de carga', icon: UploadCloud, implementado: true },
-  { path: '/documentos', label: 'Documentos', icon: FileStack, fase: 7 },
+  { path: '/documentos', label: 'Documentos', icon: FileStack, implementado: true },
   { path: '/compras', label: 'Compras', icon: ShoppingCart, fase: 9 },
   { path: '/ventas', label: 'Ventas', icon: Receipt, fase: 9 },
   { path: '/terceros', label: 'Terceros', icon: Users, fase: 10 },

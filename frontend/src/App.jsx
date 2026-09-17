@@ -6,6 +6,8 @@ import { RegistroPage } from './pages/RegistroPage.jsx'
 import { DashboardPage } from './pages/DashboardPage.jsx'
 import { PlaceholderPage } from './pages/PlaceholderPage.jsx'
 import { CentroCargaPage } from './pages/CentroCargaPage.jsx'
+import { DocumentosPage } from './pages/DocumentosPage.jsx'
+import { DocumentoDetallePage } from './pages/DocumentoDetallePage.jsx'
 import { EquipoPage } from './pages/configuracion/EquipoPage.jsx'
 import { MODULOS } from './lib/navegacion.js'
 
@@ -19,6 +21,8 @@ function App() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/centro-carga" element={<CentroCargaPage />} />
+          <Route path="/documentos" element={<DocumentosPage />} />
+          <Route path="/documentos/:id" element={<DocumentoDetallePage />} />
           <Route path="/configuracion" element={<EquipoPage />} />
 
           {MODULOS.filter((m) => !m.implementado).map(({ path, label, fase, nota }) => (
