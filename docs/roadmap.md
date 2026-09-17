@@ -9,7 +9,7 @@ Cada fase deja una base funcional para la siguiente. No se avanza a la siguiente
 | 3 | Autenticación (JWT, login, roles base) | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 4 | Empresas, usuarios y roles (multiempresa funcional) | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 5 | Dashboard | **Completa** — verificada manualmente en navegador por el usuario |
-| 6 | Centro de carga (subida de archivos, registro de cargas) | Pendiente |
+| 6 | Centro de carga (subida de archivos, registro de cargas) | **Completa** — probada de punta a punta contra PostgreSQL local y confirmada por el usuario en navegador |
 | 7 | Documentos y procesamiento (parsers, modelo interno) | Pendiente |
 | 8 | Motor de validaciones | Pendiente |
 | 9 | Compras y ventas (módulos de negocio sobre `documentos`) | Pendiente |
@@ -55,6 +55,16 @@ Se construyó el shell real de la aplicación que la Fase 2 había dejado pendie
 El Dashboard (`DashboardPage.jsx`) muestra únicamente datos reales: empresa activa, rol del usuario, equipo (consumiendo el backend de Fase 4) y una alerta genuina cuando la empresa tiene un solo administrador activo. Las métricas de documentos de la sección 18 (recibidos, procesados, pendientes, aprobados, etc.) se muestran como placeholders explícitos ("—", con la fase que los habilita) en vez de inventar ceros que parezcan datos reales, porque el modelo de `documentos` todavía no existe (llega en Fase 7). Se agregó también una página de Configuración → Equipo (listar/invitar/cambiar rol) que le da uso real a la API de Fase 4.
 
 No se pudo probar en un navegador automatizado (la extensión Claude in Chrome no quedó conectada en esta sesión); se verificó con `npm run build` + `npm run lint` limpios, y el usuario confirmó manualmente que el flujo de registro funciona correctamente.
+
+## Nota sobre Fase 6
+
+Se agregaron los modelos `Carga`, `ArchivoOrigen` (ver `docs/database.md` §3) y `Auditoria` (sección 23, implementada de una vez ya que la primera acción mutante real — subir archivos — la necesitaba). Módulo `backend/src/modules/cargas/`: `POST /api/cargas` (multipart con `multer`, hasta `CARGA_MAX_ARCHIVOS` archivos por lote), validación de **contenido real** vía `file-type` (magic bytes) para formatos binarios y un heurístico propio para XML/CSV (texto plano no tiene firma binaria), deduplicación por hash SHA-256 a nivel de empresa, y almacenamiento en disco (`backend/storage/`, gitignored) con rutas generadas solo a partir de ids del servidor — nunca del nombre original del archivo (evita path traversal). Se agregó también `GET /api/auditoria` (solo ADMINISTRADOR) para poder verificar el registro de auditoría.
+
+Frontend: página real de Centro de Carga (`CentroCargaPage.jsx`) con selector de tipo, drag & drop, barra de progreso real (XHR, `fetch` no expone progreso de subida de forma confiable), resultado por archivo, e historial expandible con apertura del archivo original. El Dashboard ahora muestra el conteo real de cargas y las últimas cargas, reemplazando ese placeholder de Fase 5.
+
+**Bug real encontrado y corregido durante las pruebas E2E:** el índice único `(empresa_id, hash_sha256)` en `archivos_origen` competía con el intento de guardar una fila `ERROR` para reportar un archivo duplicado (mismo hash que uno ya `RECIBIDO`) → violación de constraint → 500. Se corrigió no persistiendo filas para archivos rechazados/duplicados (nunca se "recibieron" de verdad); se reportan solo en la respuesta de la petición de subida. Limitación conocida: no queda historial por-archivo de rechazos pasados, solo el conteo agregado (`cantidadArchivos` vs. archivos realmente guardados) en `cargas`.
+
+Probado de punta a punta contra PostgreSQL real: lote mixto (2 válidos + 1 duplicado intra-lote + 1 con contenido inválido), duplicado entre cargas distintas, descarga con verificación de integridad del contenido, bloqueo de rol `CONSULTA` al subir (403) y al ver auditoría (403), y registro correcto en `auditoria`. Confirmado también manualmente por el usuario en el navegador.
 
 ## Información que el usuario debe aportar antes de Fase 14
 

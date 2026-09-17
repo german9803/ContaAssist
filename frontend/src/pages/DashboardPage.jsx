@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowUpRight, Inbox, Send } from 'lucide-react'
+import { AlertTriangle, ArrowUpRight, Send, UploadCloud } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { api } from '../lib/api.js'
 import { StatTile } from '../components/StatTile.jsx'
+import { EstadoBadge } from '../components/carga/EstadoBadge.jsx'
 
 const PIPELINE = [
-  { label: 'Recibidos', nota: 'Centro de carga — Fase 6' },
   { label: 'Procesados', nota: 'Fase 7' },
   { label: 'Pendientes de revisión', nota: 'Fase 8' },
   { label: 'Con errores', nota: 'Fase 8' },
@@ -18,15 +18,27 @@ const PIPELINE = [
 export function DashboardPage() {
   const { empresaActual, empresaId } = useAuth()
   const [equipo, setEquipo] = useState(null)
+  const [cargas, setCargas] = useState(null)
+  const [totalCargas, setTotalCargas] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     let cancelado = false
     setEquipo(null)
+    setCargas(null)
+    setTotalCargas(null)
     api
       .listarUsuariosEmpresa(empresaId)
       .then((data) => !cancelado && setEquipo(data))
       .catch(() => !cancelado && setError('No se pudo cargar el equipo de la empresa'))
+    api
+      .listarCargas({ pageSize: 5 })
+      .then((res) => {
+        if (cancelado) return
+        setCargas(res.data)
+        setTotalCargas(res.total)
+      })
+      .catch(() => !cancelado && setError('No se pudo cargar el historial de cargas'))
     return () => {
       cancelado = true
     }
@@ -60,6 +72,7 @@ export function DashboardPage() {
       <section>
         <h2 className="mb-3 text-sm font-semibold text-slate-600">Documentos</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+          <StatTile label="Cargas recibidas" value={totalCargas} nota="Centro de carga" />
           {PIPELINE.map((tile) => (
             <StatTile key={tile.label} label={tile.label} value={null} nota={tile.nota} />
           ))}
@@ -98,14 +111,39 @@ export function DashboardPage() {
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-600">Últimas cargas y exportaciones</h2>
-          <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-slate-400">
-            <div className="flex gap-3">
-              <Inbox size={22} strokeWidth={1.5} />
-              <Send size={22} strokeWidth={1.5} />
-            </div>
-            <p className="text-sm">Aparecerán aquí cuando el Centro de Carga (Fase 6) y las Exportaciones (Fase 13) estén disponibles.</p>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-600">Últimas cargas</h2>
+            <Link
+              to="/centro-carga"
+              className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-500"
+            >
+              Ver todas <ArrowUpRight size={14} />
+            </Link>
           </div>
+
+          {cargas === null ? (
+            <p className="text-sm text-slate-400">Cargando…</p>
+          ) : cargas.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-6 text-center text-slate-400">
+              <UploadCloud size={22} strokeWidth={1.5} />
+              <p className="text-sm">Todavía no se ha subido ninguna carga.</p>
+            </div>
+          ) : (
+            <ul className="space-y-1.5">
+              {cargas.map((c) => (
+                <li key={c.id} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">
+                    {c.tipoOrigen} · {c.cantidadArchivos} archivo{c.cantidadArchivos === 1 ? '' : 's'}
+                  </span>
+                  <EstadoBadge estado={c.estado} />
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <p className="mt-4 flex items-center gap-1.5 text-xs text-slate-400">
+            <Send size={13} /> Exportaciones aparecerán aquí cuando esa fase (13) esté disponible.
+          </p>
         </section>
       </div>
     </div>

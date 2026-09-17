@@ -22,6 +22,9 @@ model Empresa {
   creadoEn        DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
 
   usuarioEmpresaRoles UsuarioEmpresaRol[]
+  cargas              Carga[]
+  archivosOrigen      ArchivoOrigen[]
+  auditoria           Auditoria[]
 
   @@map("empresas")
 }
@@ -68,6 +71,8 @@ model Usuario {
   creadoEn       DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
 
   empresaRoles UsuarioEmpresaRol[]
+  cargas       Carga[]
+  auditoria    Auditoria[]
 
   @@map("usuarios")
 }
@@ -86,4 +91,65 @@ model UsuarioEmpresaRol {
   @@unique([usuarioId, empresaId]) // un usuario tiene un único rol activo por empresa
   @@index([empresaId, usuarioId])
   @@map("usuario_empresa_rol")
+}
+
+// ── Fase 6: Centro de carga (ver /docs/database.md §3) ──────────────────────
+
+model Carga {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empresaId        String    @map("empresa_id") @db.Uuid
+  usuarioId        String    @map("usuario_id") @db.Uuid
+  tipoOrigen       String    @map("tipo_origen") @db.VarChar(20) // PDF, XML, XLSX, XLS, CSV, JPG, PNG
+  cantidadArchivos Int       @map("cantidad_archivos")
+  estado           String    @db.VarChar(30) // RECIBIDO, PROCESANDO, PROCESADO, ERROR (ver docs/data-flow.md)
+  iniciadoEn       DateTime  @default(now()) @map("iniciado_en") @db.Timestamptz(6)
+  finalizadoEn     DateTime? @map("finalizado_en") @db.Timestamptz(6)
+
+  empresa  Empresa         @relation(fields: [empresaId], references: [id])
+  usuario  Usuario         @relation(fields: [usuarioId], references: [id])
+  archivos ArchivoOrigen[]
+
+  @@index([empresaId, iniciadoEn(sort: Desc)])
+  @@map("cargas")
+}
+
+model ArchivoOrigen {
+  id                 String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cargaId            String  @map("carga_id") @db.Uuid
+  empresaId          String  @map("empresa_id") @db.Uuid
+  nombreOriginal     String  @map("nombre_original") @db.VarChar(260)
+  extension          String  @db.VarChar(10)
+  tamanoBytes        BigInt  @map("tamano_bytes")
+  hashSha256         String  @map("hash_sha256") @db.Char(64)
+  rutaAlmacenamiento String  @map("ruta_almacenamiento") @db.VarChar(400)
+  estado             String  @db.VarChar(30) // RECIBIDO, PROCESANDO, PROCESADO, ERROR
+  mensajeError       String? @map("mensaje_error") @db.VarChar(1000)
+
+  carga   Carga   @relation(fields: [cargaId], references: [id])
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+
+  @@unique([empresaId, hashSha256]) // detecta archivo duplicado dentro de la misma empresa
+  @@map("archivos_origen")
+}
+
+// ── Auditoría (sección 23) ───────────────────────────────────────────────────
+
+model Auditoria {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empresaId     String   @map("empresa_id") @db.Uuid
+  usuarioId     String   @map("usuario_id") @db.Uuid
+  accion        String   @db.VarChar(60) // ej. CARGAR_ARCHIVOS, MODIFICAR_DOCUMENTO
+  entidad       String   @db.VarChar(60) // ej. carga, documento
+  entidadId     String?  @map("entidad_id") @db.Uuid
+  campo         String?  @db.VarChar(60)
+  valorAnterior String?  @map("valor_anterior")
+  valorNuevo    String?  @map("valor_nuevo")
+  creadoEn      DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([empresaId, creadoEn(sort: Desc)])
+  @@index([entidad, entidadId])
+  @@map("auditoria")
 }

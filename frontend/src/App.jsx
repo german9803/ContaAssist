@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage.jsx'
 import { RegistroPage } from './pages/RegistroPage.jsx'
 import { DashboardPage } from './pages/DashboardPage.jsx'
 import { PlaceholderPage } from './pages/PlaceholderPage.jsx'
+import { CentroCargaPage } from './pages/CentroCargaPage.jsx'
 import { EquipoPage } from './pages/configuracion/EquipoPage.jsx'
 import { MODULOS } from './lib/navegacion.js'
 
@@ -17,6 +18,7 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
+          <Route path="/centro-carga" element={<CentroCargaPage />} />
           <Route path="/configuracion" element={<EquipoPage />} />
 
           {MODULOS.filter((m) => !m.implementado).map(({ path, label, fase, nota }) => (

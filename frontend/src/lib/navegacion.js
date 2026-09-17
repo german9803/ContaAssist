@@ -20,7 +20,7 @@ import {
 // placeholder honesto en vez de simular una funcionalidad que no existe todavía.
 export const MODULOS = [
   { path: '/', label: 'Inicio', icon: LayoutDashboard, implementado: true },
-  { path: '/centro-carga', label: 'Centro de carga', icon: UploadCloud, fase: 6 },
+  { path: '/centro-carga', label: 'Centro de carga', icon: UploadCloud, implementado: true },
   { path: '/documentos', label: 'Documentos', icon: FileStack, fase: 7 },
   { path: '/compras', label: 'Compras', icon: ShoppingCart, fase: 9 },
   { path: '/ventas', label: 'Ventas', icon: Receipt, fase: 9 },

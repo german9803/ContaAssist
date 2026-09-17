@@ -68,6 +68,46 @@ async function request(path, { method = 'GET', body, sinAuth = false, sinEmpresa
   return data
 }
 
+// Sube archivos con progreso real (fetch no expone eventos de progreso de
+// subida en todos los navegadores) — usa XHR directamente, pero mantiene los
+// mismos headers/convenciones (auth + X-Empresa-Id) que `request`.
+export function subirCarga({ tipoOrigen, archivos, onProgress }) {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData()
+    formData.append('tipoOrigen', tipoOrigen)
+    archivos.forEach((archivo) => formData.append('archivos', archivo))
+
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${API_URL}/api/cargas`)
+
+    const token = localStorage.getItem(STORAGE_KEYS.accessToken)
+    const empresaId = localStorage.getItem(STORAGE_KEYS.empresaId)
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    if (empresaId) xhr.setRequestHeader('X-Empresa-Id', empresaId)
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100))
+    }
+
+    xhr.onload = () => {
+      let data = null
+      try {
+        data = JSON.parse(xhr.responseText)
+      } catch {
+        /* respuesta sin cuerpo JSON */
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data)
+      } else {
+        reject(new ApiError(data?.error || `Error ${xhr.status}`, xhr.status, data))
+      }
+    }
+    xhr.onerror = () => reject(new ApiError('Error de red al subir los archivos', 0))
+
+    xhr.send(formData)
+  })
+}
+
 export const api = {
   registro: (datos) => request('/api/auth/registro', { method: 'POST', body: datos, sinAuth: true, sinEmpresa: true }),
   login: (datos) => request('/api/auth/login', { method: 'POST', body: datos, sinAuth: true, sinEmpresa: true }),
@@ -85,4 +125,26 @@ export const api = {
     request(`/api/empresas/${id}/usuarios`, { method: 'POST', body: datos, sinEmpresa: true }),
   actualizarMembresia: (id, usuarioId, datos) =>
     request(`/api/empresas/${id}/usuarios/${usuarioId}`, { method: 'PATCH', body: datos, sinEmpresa: true }),
+
+  listarCargas: (params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return request(`/api/cargas${query ? `?${query}` : ''}`)
+  },
+  obtenerCarga: (id) => request(`/api/cargas/${id}`),
+  listarArchivosDeCarga: (id) => request(`/api/cargas/${id}/archivos`),
+
+  // El endpoint requiere Authorization + X-Empresa-Id, así que no puede ser un
+  // <a href> plano: se pide como blob autenticado y se abre en una pestaña.
+  async abrirArchivoOriginal(cargaId, archivoId) {
+    const token = localStorage.getItem(STORAGE_KEYS.accessToken)
+    const empresaId = localStorage.getItem(STORAGE_KEYS.empresaId)
+    const res = await fetch(`${API_URL}/api/cargas/${cargaId}/archivos/${archivoId}/descarga`, {
+      headers: { Authorization: `Bearer ${token}`, 'X-Empresa-Id': empresaId },
+    })
+    if (!res.ok) throw new ApiError('No se pudo abrir el archivo', res.status)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  },
 }
