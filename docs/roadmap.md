@@ -11,7 +11,7 @@ Cada fase deja una base funcional para la siguiente. No se avanza a la siguiente
 | 5 | Dashboard | **Completa** — verificada manualmente en navegador por el usuario |
 | 6 | Centro de carga (subida de archivos, registro de cargas) | **Completa** — probada de punta a punta contra PostgreSQL local y confirmada por el usuario en navegador |
 | 7 | Documentos y procesamiento (parsers, modelo interno) | **Completa** — probada de punta a punta contra PostgreSQL local y confirmada por el usuario en navegador |
-| 8 | Motor de validaciones | Pendiente |
+| 8 | Motor de validaciones | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 9 | Compras y ventas (módulos de negocio sobre `documentos`) | Pendiente |
 | 10 | Terceros | Pendiente |
 | 11 | Mapeo de datos | Pendiente |
@@ -81,6 +81,23 @@ Nuevo módulo `/api/documentos` (listar con filtros, detalle, editar con auditor
 **Dos bugs reales encontrados por el usuario en pruebas manuales y corregidos:**
 1. `api.subirCarga` no existía como tal — la función se había exportado suelta en `api.js` en vez de como propiedad del objeto `api`, y `CentroCargaPage` la llamaba como `api.subirCarga(...)`. El error real quedaba oculto detrás de un mensaje genérico porque el manejo de errores del frontend usaba `err instanceof ApiError` en 7 lugares — un patrón frágil bajo HMR de Vite (un módulo recargado en caliente puede duplicarse en el grafo de módulos del navegador, rompiendo `instanceof`). Se reemplazó por un helper `mensajeDeError(err, fallback)` que usa `err?.message` en los 7 lugares.
 2. Un CSV real (de sample-files.com, con una línea de comentario y columnas que no seguían la plantilla) tumbaba `csv-parse` con una excepción sin atrapar, que crasheaba la petición completa a mitad de camino y dejaba la carga y el archivo atascados en estado `PROCESANDO` para siempre. Se corrigió en tres niveles: el parser de CSV ahora tolera comentarios (`comment: '#'`) y conteo de columnas irregular (`relax_column_count`) y nunca lanza (igual se corrigió `xlsxParser.js` preventivamente); `procesarArchivo` nunca lanza (try/catch envolvente); y el loop de `crearCarga` en `cargas.service.js` envuelve cada archivo individualmente, así que un fallo inesperado en cualquier punto marca ese archivo como error sin tumbar el resto del lote ni dejar la carga sin estado final.
+
+## Nota sobre Fase 8
+
+Motor de reglas (`backend/src/validation-engine/`) con el patrón de registro documentado desde Fase 1: cada regla es un módulo `{codigo, severidad, aplicaA, evaluar}` en `reglas/`, sumado a un array en `registry.js` — agregar una regla nueva no toca el motor. 7 reglas implementadas ahora, las que ya son evaluables con los campos que existen en `documentos`:
+
+- **BLOQUEANTE**: `CAMPO_OBLIGATORIO_FALTANTE`, `FECHA_INVALIDA`, `TOTAL_DESCUADRADO`, `TERCERO_NO_IDENTIFICADO`, `NIT_INVALIDO` (dígito de verificación real, algoritmo público de la DIAN — verificado contra un NIT real conocido: Bancolombia 890903938-8), `DUPLICADO_DOCUMENTO` (mismo tercero+número+tipo en la empresa).
+- **ADVERTENCIA**: `IMPUESTO_INCONSISTENTE` (la suma de `documento_impuestos` no coincide con `total_impuestos`).
+
+`CUENTA_NO_ASIGNADA`, `CENTRO_COSTO_REQUERIDO` y `FORMA_PAGO_FALTANTE` (documentadas en `validation-engine.md` desde Fase 1) siguen pendientes: los campos correspondientes no existen en `documentos` todavía (llegan con los catálogos de Fase 9/11).
+
+El motor se dispara automáticamente al final del procesamiento de Fase 7 (mismo request, sin cola) y dentro de `PATCH /api/documentos/:id` (una edición invalida cualquier aprobación previa y vuelve a `PENDIENTE_REVISION`). Nuevo `POST /:id/revalidar` (cualquier rol editor) y `POST /:id/aprobar` / `POST /:id/rechazar` (solo ADMINISTRADOR/CONTADOR — sección 9: "el contador revisa, valida y aprueba"; `aprobar` rechaza con 409 si queda algún bloqueante en falla). No hay auto-aprobación: todo documento pasa por `PENDIENTE_REVISION` sin excepción, como quedó documentado en `data-flow.md` desde Fase 1.
+
+**Dos bugs reales encontrados en pruebas E2E propias y corregidos antes de que el usuario los viera:**
+1. `GET /api/documentos` tiraba 500: `documentos.map(serializarDocumento)` le pasaba a `serializarDocumento` el índice del array como segundo argumento (`validaciones`), y `0?.some(...)` explota porque `0` no es `undefined` (el optional-chaining no protege ahí). Se corrigió envolviendo en arrow function y además se hizo `hayBloqueante` defensivo con `Array.isArray(...)` en vez de confiar solo en `?.`.
+2. Un `node src/server.js &` lanzado en foreground dentro de un script largo de una sola llamada de herramienta se quedó colgado sin logs — se resolvió siempre arrancando el servidor con `run_in_background`/`nohup` en un paso separado, nunca `&` inline dentro de un script combinado.
+
+Probado de punta a punta contra PostgreSQL real: ciclo completo aprobar bloqueado por error → corregir vía PATCH → revalida automático → aprobar exitoso → reintentar aprobar ya aprobado (409); rechazar con motivo; permisos por rol (`AUXILIAR_CONTABLE` revalida pero no aprueba/rechaza — 403; `CONSULTA` no puede ninguna acción de escritura pero sí ve el detalle).
 
 ## Información que el usuario debe aportar antes de Fase 14
 

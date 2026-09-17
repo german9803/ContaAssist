@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ExternalLink } from 'lucide-react'
+import { ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react'
 import { api, mensajeDeError } from '../lib/api.js'
+import { useAuth } from '../context/AuthContext.jsx'
 import { TIPOS_DOCUMENTO } from '../lib/tiposDocumento.js'
 import { EstadoBadge } from '../components/carga/EstadoBadge.jsx'
+import { ListaValidaciones } from '../components/documentos/ListaValidaciones.jsx'
+
+const ROLES_QUE_APRUEBAN = ['ADMINISTRADOR', 'CONTADOR']
+const ESTADOS_TERMINALES = ['APROBADO', 'RECHAZADO']
 
 const CAMPOS_INICIALES = {
   tipoDocumento: '',
@@ -34,11 +39,16 @@ function aFormulario(doc) {
 export function DocumentoDetallePage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { empresaActual } = useAuth()
   const [documento, setDocumento] = useState(null)
   const [form, setForm] = useState(CAMPOS_INICIALES)
   const [error, setError] = useState(null)
   const [guardando, setGuardando] = useState(false)
   const [guardado, setGuardado] = useState(false)
+  const [procesandoAccion, setProcesandoAccion] = useState(false)
+
+  const puedeAprobar = ROLES_QUE_APRUEBAN.includes(empresaActual?.rolCodigo)
+  const esTerminal = ESTADOS_TERMINALES.includes(documento?.estado)
 
   useEffect(() => {
     api
@@ -82,6 +92,27 @@ export function DocumentoDetallePage() {
     }
   }
 
+  async function ejecutarAccion(accion) {
+    setError(null)
+    setProcesandoAccion(true)
+    try {
+      const doc = await accion()
+      setDocumento(doc)
+      setForm(aFormulario(doc))
+    } catch (err) {
+      setError(mensajeDeError(err, 'No se pudo completar la acción'))
+    } finally {
+      setProcesandoAccion(false)
+    }
+  }
+
+  const handleRevalidar = () => ejecutarAccion(() => api.revalidarDocumento(id))
+  const handleAprobar = () => ejecutarAccion(() => api.aprobarDocumento(id))
+  const handleRechazar = () => {
+    const motivo = window.prompt('Motivo del rechazo (opcional):') || undefined
+    return ejecutarAccion(() => api.rechazarDocumento(id, motivo))
+  }
+
   if (error && !documento) {
     return <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">{error}</p>
   }
@@ -93,11 +124,42 @@ export function DocumentoDetallePage() {
         <ArrowLeft size={15} /> Volver a documentos
       </Link>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-slate-800">
           {documento.tipoDocumento} {documento.numeroDocumento ? `· ${documento.numeroDocumento}` : ''}
         </h1>
-        <EstadoBadge estado={documento.estado} />
+        <div className="flex items-center gap-2">
+          <EstadoBadge estado={documento.estado} />
+          <button
+            type="button"
+            onClick={handleRevalidar}
+            disabled={procesandoAccion}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+          >
+            <RefreshCw size={13} /> Revalidar
+          </button>
+          {puedeAprobar && !esTerminal && (
+            <>
+              <button
+                type="button"
+                onClick={handleRechazar}
+                disabled={procesandoAccion}
+                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+              >
+                Rechazar
+              </button>
+              <button
+                type="button"
+                onClick={handleAprobar}
+                disabled={procesandoAccion || documento.hayBloqueante}
+                title={documento.hayBloqueante ? 'Hay errores bloqueantes sin resolver' : undefined}
+                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+              >
+                Aprobar
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -116,12 +178,15 @@ export function DocumentoDetallePage() {
           )}
 
           {documento.textoExtraido ? (
-            <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+            <pre className="mb-4 max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
               {documento.textoExtraido}
             </pre>
           ) : (
-            <p className="text-xs text-slate-400">Sin texto extraído para este documento.</p>
+            <p className="mb-4 text-xs text-slate-400">Sin texto extraído para este documento.</p>
           )}
+
+          <h2 className="mb-3 text-sm font-semibold text-slate-600">Validaciones</h2>
+          <ListaValidaciones validaciones={documento.validaciones} />
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4">

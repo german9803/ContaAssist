@@ -188,6 +188,7 @@ model Documento {
   archivoOrigen ArchivoOrigen? @relation(fields: [archivoOrigenId], references: [id])
   tercero       Tercero?       @relation(fields: [terceroId], references: [id])
   impuestos     DocumentoImpuesto[]
+  validaciones  DocumentoValidacion[]
 
   @@index([empresaId, estado])
   @@index([empresaId, terceroId])
@@ -217,6 +218,40 @@ model DocumentoImpuesto {
 
   @@index([documentoId])
   @@map("documento_impuestos")
+}
+
+// ── Fase 8: motor de validaciones (ver /docs/validation-engine.md, database.md §7)
+//
+// Reglas ya implementables ahora: campos obligatorios, fecha, total cuadrado,
+// tercero identificado, NIT válido, documento duplicado, consistencia de IVA.
+// CUENTA_NO_ASIGNADA / CENTRO_COSTO_REQUERIDO / FORMA_PAGO_FALTANTE quedan
+// para cuando existan esos catálogos (Fase 9/11) — documento no tiene esos campos aún.
+
+model ReglaValidacion {
+  id          Int     @id @default(autoincrement())
+  codigo      String  @unique @db.VarChar(60)
+  descripcion String  @db.VarChar(300)
+  severidad   String  @db.VarChar(20) // BLOQUEANTE, ADVERTENCIA
+  activa      Boolean @default(true)
+
+  documentoValidaciones DocumentoValidacion[]
+
+  @@map("reglas_validacion")
+}
+
+model DocumentoValidacion {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentoId String   @map("documento_id") @db.Uuid
+  reglaId     Int      @map("regla_id")
+  resultado   String   @db.VarChar(20) // OK, FALLA
+  mensaje     String?  @db.VarChar(500)
+  evaluadoEn  DateTime @default(now()) @map("evaluado_en") @db.Timestamptz(6)
+
+  documento Documento       @relation(fields: [documentoId], references: [id])
+  regla     ReglaValidacion @relation(fields: [reglaId], references: [id])
+
+  @@index([documentoId, evaluadoEn(sort: Desc)])
+  @@map("documento_validaciones")
 }
 
 // ── Auditoría (sección 23) ───────────────────────────────────────────────────

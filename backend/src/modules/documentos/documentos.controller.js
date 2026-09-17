@@ -2,6 +2,9 @@ import {
   listarDocumentos,
   obtenerDocumento,
   actualizarDocumento,
+  revalidarDocumento,
+  aprobarDocumento,
+  rechazarDocumento,
   obtenerArchivoOriginalDeDocumento,
   DocumentoError,
 } from './documentos.service.js'
@@ -46,6 +49,33 @@ export async function patchDocumento(req, res, next) {
       cambios: req.body || {},
     })
     res.json(documento)
+  } catch (error) {
+    manejarError(error, res, next)
+  }
+}
+
+export async function postRevalidar(req, res, next) {
+  try {
+    res.json(await revalidarDocumento({ empresaId: req.empresaId, documentoId: req.params.id }))
+  } catch (error) {
+    manejarError(error, res, next)
+  }
+}
+
+export async function postAprobar(req, res, next) {
+  try {
+    res.json(await aprobarDocumento({ empresaId: req.empresaId, documentoId: req.params.id, usuarioId: req.usuario.id }))
+  } catch (error) {
+    manejarError(error, res, next)
+  }
+}
+
+export async function postRechazar(req, res, next) {
+  try {
+    const { motivo } = req.body || {}
+    res.json(
+      await rechazarDocumento({ empresaId: req.empresaId, documentoId: req.params.id, usuarioId: req.usuario.id, motivo }),
+    )
   } catch (error) {
     manejarError(error, res, next)
   }

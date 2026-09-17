@@ -3,6 +3,9 @@ import { registrarAuditoria } from '../../audit/audit.service.js'
 import { buscarOCrearTercero } from '../../document-processing/terceros.interno.js'
 import { TIPOS_DOCUMENTO } from '../../document-processing/tiposDocumento.js'
 import { leerArchivo } from '../cargas/cargas.storage.js'
+import { ejecutarValidaciones, obtenerUltimosResultados } from '../../validation-engine/engine.js'
+
+const ESTADOS_TERMINALES = ['APROBADO', 'RECHAZADO']
 
 class DocumentoError extends Error {
   constructor(message, status = 400) {
@@ -11,7 +14,7 @@ class DocumentoError extends Error {
   }
 }
 
-function serializarDocumento(doc) {
+function serializarDocumento(doc, validaciones) {
   return {
     id: doc.id,
     archivoOrigenId: doc.archivoOrigenId,
@@ -32,6 +35,10 @@ function serializarDocumento(doc) {
     observaciones: doc.observaciones,
     impuestos: doc.impuestos
       ? doc.impuestos.map((i) => ({ codigo: i.impuesto.codigo, base: i.base, valor: i.valor }))
+      : undefined,
+    validaciones,
+    hayBloqueante: Array.isArray(validaciones)
+      ? validaciones.some((v) => v.severidad === 'BLOQUEANTE' && v.resultado === 'FALLA')
       : undefined,
     creadoEn: doc.creadoEn,
   }
@@ -59,13 +66,14 @@ export async function listarDocumentos({ empresaId, estado, tipoDocumento, page 
       take: pageSize,
     }),
   ])
-  return { data: documentos.map(serializarDocumento), total, page, pageSize }
+  return { data: documentos.map((doc) => serializarDocumento(doc)), total, page, pageSize }
 }
 
 export async function obtenerDocumento({ empresaId, documentoId }) {
   const doc = await prisma.documento.findFirst({ where: { id: documentoId, empresaId }, include: INCLUYE_DETALLE })
   if (!doc) throw new DocumentoError('Documento no encontrado', 404)
-  return serializarDocumento(doc)
+  const validaciones = await obtenerUltimosResultados(documentoId)
+  return serializarDocumento(doc, validaciones)
 }
 
 export async function actualizarDocumento({ empresaId, documentoId, usuarioId, cambios }) {
@@ -118,7 +126,82 @@ export async function actualizarDocumento({ empresaId, documentoId, usuarioId, c
     })
   }
 
-  return serializarDocumento(actualizado)
+  // Datos cambiaron: se re-evalúan las reglas y el documento vuelve a
+  // PENDIENTE_REVISION (una aprobación previa queda invalidada por la edición).
+  const { resultados } = await ejecutarValidaciones(documentoId)
+  const final = await prisma.documento.findUniqueOrThrow({ where: { id: documentoId }, include: INCLUYE_DETALLE })
+
+  return serializarDocumento(final, resultados)
+}
+
+export async function revalidarDocumento({ empresaId, documentoId }) {
+  const existe = await prisma.documento.findFirst({ where: { id: documentoId, empresaId } })
+  if (!existe) throw new DocumentoError('Documento no encontrado', 404)
+
+  const { resultados } = await ejecutarValidaciones(documentoId)
+  const doc = await prisma.documento.findUniqueOrThrow({ where: { id: documentoId }, include: INCLUYE_DETALLE })
+  return serializarDocumento(doc, resultados)
+}
+
+export async function aprobarDocumento({ empresaId, documentoId, usuarioId }) {
+  const doc = await prisma.documento.findFirst({ where: { id: documentoId, empresaId } })
+  if (!doc) throw new DocumentoError('Documento no encontrado', 404)
+  if (ESTADOS_TERMINALES.includes(doc.estado)) {
+    throw new DocumentoError(`El documento ya está en estado ${doc.estado}`, 409)
+  }
+
+  const validaciones = await obtenerUltimosResultados(documentoId)
+  const hayBloqueante = validaciones.some((v) => v.severidad === 'BLOQUEANTE' && v.resultado === 'FALLA')
+  if (hayBloqueante) {
+    throw new DocumentoError('No se puede aprobar: hay errores bloqueantes sin resolver. Corrige y revalida.', 409)
+  }
+
+  const actualizado = await prisma.documento.update({
+    where: { id: documentoId },
+    data: { estado: 'APROBADO' },
+    include: INCLUYE_DETALLE,
+  })
+
+  await registrarAuditoria({
+    empresaId,
+    usuarioId,
+    accion: 'APROBAR_DOCUMENTO',
+    entidad: 'documento',
+    entidadId: documentoId,
+    campo: 'estado',
+    valorAnterior: doc.estado,
+    valorNuevo: 'APROBADO',
+  })
+
+  return serializarDocumento(actualizado, validaciones)
+}
+
+export async function rechazarDocumento({ empresaId, documentoId, usuarioId, motivo }) {
+  const doc = await prisma.documento.findFirst({ where: { id: documentoId, empresaId } })
+  if (!doc) throw new DocumentoError('Documento no encontrado', 404)
+  if (ESTADOS_TERMINALES.includes(doc.estado)) {
+    throw new DocumentoError(`El documento ya está en estado ${doc.estado}`, 409)
+  }
+
+  const actualizado = await prisma.documento.update({
+    where: { id: documentoId },
+    data: { estado: 'RECHAZADO', observaciones: motivo || doc.observaciones },
+    include: INCLUYE_DETALLE,
+  })
+
+  await registrarAuditoria({
+    empresaId,
+    usuarioId,
+    accion: 'RECHAZAR_DOCUMENTO',
+    entidad: 'documento',
+    entidadId: documentoId,
+    campo: 'estado',
+    valorAnterior: doc.estado,
+    valorNuevo: 'RECHAZADO',
+  })
+
+  const validaciones = await obtenerUltimosResultados(documentoId)
+  return serializarDocumento(actualizado, validaciones)
 }
 
 export async function obtenerArchivoOriginalDeDocumento({ empresaId, documentoId }) {

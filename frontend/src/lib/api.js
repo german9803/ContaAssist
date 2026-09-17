@@ -172,4 +172,7 @@ export const api = {
   },
   obtenerDocumento: (id) => request(`/api/documentos/${id}`),
   actualizarDocumento: (id, datos) => request(`/api/documentos/${id}`, { method: 'PATCH', body: datos }),
+  revalidarDocumento: (id) => request(`/api/documentos/${id}/revalidar`, { method: 'POST' }),
+  aprobarDocumento: (id) => request(`/api/documentos/${id}/aprobar`, { method: 'POST' }),
+  rechazarDocumento: (id, motivo) => request(`/api/documentos/${id}/rechazar`, { method: 'POST', body: { motivo } }),
 }

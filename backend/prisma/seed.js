@@ -15,6 +15,17 @@ const IMPUESTOS = [
   { codigo: 'IVA_0', nombre: 'IVA 0%', porcentaje: 0 },
 ]
 
+// Debe reflejar los códigos implementados en validation-engine/registry.js
+const REGLAS_VALIDACION = [
+  { codigo: 'CAMPO_OBLIGATORIO_FALTANTE', descripcion: 'Número, fecha, tercero o total ausentes', severidad: 'BLOQUEANTE' },
+  { codigo: 'FECHA_INVALIDA', descripcion: 'Fecha de emisión en el futuro', severidad: 'BLOQUEANTE' },
+  { codigo: 'TOTAL_DESCUADRADO', descripcion: 'subtotal + impuestos - retenciones no coincide con el total', severidad: 'BLOQUEANTE' },
+  { codigo: 'TERCERO_NO_IDENTIFICADO', descripcion: 'No se identificó el tercero del documento', severidad: 'BLOQUEANTE' },
+  { codigo: 'NIT_INVALIDO', descripcion: 'NIT con formato o dígito de verificación inválido', severidad: 'BLOQUEANTE' },
+  { codigo: 'DUPLICADO_DOCUMENTO', descripcion: 'Mismo tercero, número y tipo que otro documento existente', severidad: 'BLOQUEANTE' },
+  { codigo: 'IMPUESTO_INCONSISTENTE', descripcion: 'La suma de impuestos detallados no coincide con el total declarado', severidad: 'ADVERTENCIA' },
+]
+
 async function seedRoles() {
   for (const rol of ROLES) {
     await prisma.rol.upsert({
@@ -35,6 +46,17 @@ async function seedImpuestos() {
     })
   }
   console.log(`Impuestos: ${IMPUESTOS.length} sincronizados`)
+}
+
+async function seedReglasValidacion() {
+  for (const regla of REGLAS_VALIDACION) {
+    await prisma.reglaValidacion.upsert({
+      where: { codigo: regla.codigo },
+      update: { descripcion: regla.descripcion, severidad: regla.severidad },
+      create: regla,
+    })
+  }
+  console.log(`Reglas de validación: ${REGLAS_VALIDACION.length} sincronizadas`)
 }
 
 async function seedAdminDemo() {
@@ -80,6 +102,7 @@ async function seedAdminDemo() {
 async function main() {
   await seedRoles()
   await seedImpuestos()
+  await seedReglasValidacion()
   await seedAdminDemo()
 }
 

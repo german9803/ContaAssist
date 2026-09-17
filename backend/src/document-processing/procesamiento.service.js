@@ -4,6 +4,7 @@ import { parsearCsv } from './csvParser.js'
 import { parsearXlsx } from './xlsxParser.js'
 import { parsearXmlFactura } from './xmlParser.js'
 import { extraerTextoPdf } from './pdfParser.js'
+import { ejecutarValidaciones } from '../validation-engine/engine.js'
 
 async function idImpuesto(codigo, cache) {
   if (!codigo) return null
@@ -73,8 +74,9 @@ async function crearDocumentoShell({ empresaId, archivoOrigenId, observaciones, 
 // corregido durante las pruebas: un CSV real con una línea de comentario
 // tumbaba `csv-parse` y crasheaba toda la petición).
 export async function procesarArchivo({ empresaId, archivoOrigenId, tipoOrigen, buffer }) {
+  let resultado
   try {
-    return await despacharPorTipo({ empresaId, archivoOrigenId, tipoOrigen, buffer })
+    resultado = await despacharPorTipo({ empresaId, archivoOrigenId, tipoOrigen, buffer })
   } catch (error) {
     return {
       exito: false,
@@ -82,6 +84,20 @@ export async function procesarArchivo({ empresaId, archivoOrigenId, tipoOrigen, 
       erroresFilas: [{ fila: null, errores: [`No se pudo procesar el archivo: ${error.message}`] }],
     }
   }
+
+  // Fase 8: cada documento recién creado pasa por el motor de validaciones
+  // antes de quedar disponible para revisión. Un fallo del motor no debe
+  // perder el documento ya creado — queda en PROCESADO sin validar en vez
+  // de bloquear toda la carga.
+  for (const documento of resultado.documentosCreados) {
+    try {
+      await ejecutarValidaciones(documento.id)
+    } catch (error) {
+      console.error(`No se pudieron ejecutar las validaciones del documento ${documento.id}:`, error)
+    }
+  }
+
+  return resultado
 }
 
 async function despacharPorTipo({ empresaId, archivoOrigenId, tipoOrigen, buffer }) {
