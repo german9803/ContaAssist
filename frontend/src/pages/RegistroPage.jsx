@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FileStack } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { mensajeDeError } from '../lib/api.js'
+import lockup from '../assets/brand/lockup-light.svg'
 
 const CAMPO_INICIAL = {
   nombreCompleto: '',
@@ -37,9 +37,9 @@ export function RegistroPage() {
   return (
     <div className="flex min-h-svh items-center justify-center bg-slate-50 px-4 py-10">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-2 text-indigo-600">
-          <FileStack size={36} strokeWidth={1.75} />
-          <h1 className="text-2xl font-semibold text-slate-800">Crea tu empresa en ContaAssist</h1>
+        <div className="mb-8 flex flex-col items-center gap-2">
+          <img src={lockup} alt="ContaAssist" width={200} height={73} className="mb-2" />
+          <h1 className="text-center text-xl font-semibold text-slate-800">Crea tu empresa</h1>
           <p className="text-center text-sm text-slate-500">Quedarás como administrador de esta empresa</p>
         </div>
 

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { FileStack } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { mensajeDeError } from '../lib/api.js'
+import lockup from '../assets/brand/lockup-light.svg'
 
 export function LoginPage() {
   const { login, cargando } = useAuth()
@@ -27,9 +27,8 @@ export function LoginPage() {
   return (
     <div className="flex min-h-svh items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-2 text-indigo-600">
-          <FileStack size={36} strokeWidth={1.75} />
-          <h1 className="text-2xl font-semibold text-slate-800">ContaAssist</h1>
+        <div className="mb-8 flex flex-col items-center gap-2">
+          <img src={lockup} alt="ContaAssist" width={200} height={73} />
           <p className="text-sm text-slate-500">Inicia sesión para continuar</p>
         </div>
 

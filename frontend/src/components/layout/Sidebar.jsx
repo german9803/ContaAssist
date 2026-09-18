@@ -1,13 +1,13 @@
 import { NavLink } from 'react-router-dom'
-import { FileStack } from 'lucide-react'
+import iconoMarca from '../../assets/brand/icon.svg'
 import { MODULOS } from '../../lib/navegacion.js'
 
 export function Sidebar() {
   return (
     <aside className="flex h-svh w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
       <div className="flex items-center gap-2 px-5 py-5">
-        <FileStack className="text-indigo-600" size={24} strokeWidth={1.75} />
-        <span className="text-lg font-semibold tracking-tight text-slate-800">ContaAssist</span>
+        <img src={iconoMarca} alt="" width={28} height={28} className="rounded-md" />
+        <span className="font-brand text-lg font-bold tracking-tight text-slate-800">ContaAssist</span>
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
