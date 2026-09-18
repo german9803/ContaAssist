@@ -185,4 +185,19 @@ export const api = {
   obtenerTercero: (id) => request(`/api/terceros/${id}`),
   crearTercero: (datos) => request('/api/terceros', { method: 'POST', body: datos }),
   actualizarTercero: (id, datos) => request(`/api/terceros/${id}`, { method: 'PATCH', body: datos }),
+
+  listarCuentasContables: () => request('/api/config/cuentas-contables'),
+  crearCuentaContable: (datos) => request('/api/config/cuentas-contables', { method: 'POST', body: datos }),
+  listarCentrosCosto: () => request('/api/config/centros-costo'),
+  crearCentroCosto: (datos) => request('/api/config/centros-costo', { method: 'POST', body: datos }),
+  listarFormasPago: () => request('/api/config/formas-pago'),
+  crearFormaPago: (datos) => request('/api/config/formas-pago', { method: 'POST', body: datos }),
+  listarSistemasDestino: () => request('/api/config/sistemas-destino'),
+
+  listarMapeoCuentas: (sistemaDestino) => request(`/api/mapeos/cuentas${queryDesde({ sistemaDestino })}`),
+  guardarMapeoCuenta: (datos) => request('/api/mapeos/cuentas', { method: 'POST', body: datos }),
+  listarMapeoFormasPago: (sistemaDestino) => request(`/api/mapeos/formas-pago${queryDesde({ sistemaDestino })}`),
+  guardarMapeoFormaPago: (datos) => request('/api/mapeos/formas-pago', { method: 'POST', body: datos }),
+  listarMapeoTerceros: (sistemaDestino) => request(`/api/mapeos/terceros${queryDesde({ sistemaDestino })}`),
+  guardarMapeoTercero: (datos) => request('/api/mapeos/terceros', { method: 'POST', body: datos }),
 }

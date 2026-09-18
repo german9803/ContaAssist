@@ -7,6 +7,9 @@ import totalCuadrado from '../src/validation-engine/reglas/totalCuadrado.js'
 import terceroIdentificado from '../src/validation-engine/reglas/terceroIdentificado.js'
 import nitValido from '../src/validation-engine/reglas/nitValido.js'
 import impuestoConsistente from '../src/validation-engine/reglas/impuestoConsistente.js'
+import cuentaAsignada from '../src/validation-engine/reglas/cuentaAsignada.js'
+import centroCostoRequerido from '../src/validation-engine/reglas/centroCostoRequerido.js'
+import formaPagoFaltante from '../src/validation-engine/reglas/formaPagoFaltante.js'
 
 test('calcularDigitoVerificacionNit reproduce el DV real de un NIT conocido (Bancolombia 890903938-8)', () => {
   assert.equal(calcularDigitoVerificacionNit('890903938'), 8)
@@ -82,4 +85,22 @@ test('impuestoConsistente detecta que el detalle no suma el total declarado', ()
 test('impuestoConsistente pasa cuando el detalle sí suma el total', () => {
   const r = impuestoConsistente.evaluar({ totalImpuestos: 19000, impuestos: [{ valor: 15000 }, { valor: 4000 }] })
   assert.equal(r.resultado, 'OK')
+})
+
+test('cuentaAsignada es advertencia, no bloqueante, y falla sin cuentaContableId', () => {
+  assert.equal(cuentaAsignada.severidad, 'ADVERTENCIA')
+  assert.equal(cuentaAsignada.evaluar({ cuentaContableId: null }).resultado, 'FALLA')
+  assert.equal(cuentaAsignada.evaluar({ cuentaContableId: 'x' }).resultado, 'OK')
+})
+
+test('centroCostoRequerido es advertencia (no hay config por empresa aún) y falla sin centroCostoId', () => {
+  assert.equal(centroCostoRequerido.severidad, 'ADVERTENCIA')
+  assert.equal(centroCostoRequerido.evaluar({ centroCostoId: null }).resultado, 'FALLA')
+  assert.equal(centroCostoRequerido.evaluar({ centroCostoId: 'x' }).resultado, 'OK')
+})
+
+test('formaPagoFaltante es advertencia y falla sin formaPagoId', () => {
+  assert.equal(formaPagoFaltante.severidad, 'ADVERTENCIA')
+  assert.equal(formaPagoFaltante.evaluar({ formaPagoId: null }).resultado, 'FALLA')
+  assert.equal(formaPagoFaltante.evaluar({ formaPagoId: 'x' }).resultado, 'OK')
 })

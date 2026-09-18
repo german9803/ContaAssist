@@ -5,6 +5,8 @@ import { empresasRouter } from './modules/empresas/empresas.routes.js'
 import { cargasRouter } from './modules/cargas/cargas.routes.js'
 import { documentosRouter } from './modules/documentos/documentos.routes.js'
 import { tercerosRouter } from './modules/terceros/terceros.routes.js'
+import { configuracionContableRouter } from './modules/configuracion-contable/configuracionContable.routes.js'
+import { mapeoRouter } from './modules/mapeo/mapeo.routes.js'
 import { auditoriaRouter } from './audit/audit.routes.js'
 
 export function createApp() {
@@ -22,6 +24,8 @@ export function createApp() {
   app.use('/api/cargas', cargasRouter)
   app.use('/api/documentos', documentosRouter)
   app.use('/api/terceros', tercerosRouter)
+  app.use('/api/config', configuracionContableRouter)
+  app.use('/api/mapeos', mapeoRouter)
   app.use('/api/auditoria', auditoriaRouter)
 
   app.use((req, res) => {

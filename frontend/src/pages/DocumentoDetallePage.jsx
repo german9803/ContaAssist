@@ -20,6 +20,9 @@ const CAMPOS_INICIALES = {
   observaciones: '',
   terceroNit: '',
   terceroRazonSocial: '',
+  cuentaContableCodigo: '',
+  centroCostoCodigo: '',
+  formaPagoCodigo: '',
 }
 
 function aFormulario(doc) {
@@ -33,6 +36,9 @@ function aFormulario(doc) {
     observaciones: doc.observaciones || '',
     terceroNit: doc.tercero?.identificacion || '',
     terceroRazonSocial: doc.tercero?.razonSocial || '',
+    cuentaContableCodigo: doc.cuentaContable?.codigo || '',
+    centroCostoCodigo: doc.centroCosto?.codigo || '',
+    formaPagoCodigo: doc.formaPago?.codigo || '',
   }
 }
 
@@ -46,6 +52,9 @@ export function DocumentoDetallePage() {
   const [guardando, setGuardando] = useState(false)
   const [guardado, setGuardado] = useState(false)
   const [procesandoAccion, setProcesandoAccion] = useState(false)
+  const [cuentas, setCuentas] = useState([])
+  const [centros, setCentros] = useState([])
+  const [formasPago, setFormasPago] = useState([])
 
   const puedeAprobar = ROLES_QUE_APRUEBAN.includes(empresaActual?.rolCodigo)
   const esTerminal = ESTADOS_TERMINALES.includes(documento?.estado)
@@ -58,6 +67,9 @@ export function DocumentoDetallePage() {
         setForm(aFormulario(doc))
       })
       .catch(() => setError('No se pudo cargar el documento'))
+    api.listarCuentasContables().then(setCuentas).catch(() => {})
+    api.listarCentrosCosto().then(setCentros).catch(() => {})
+    api.listarFormasPago().then(setFormasPago).catch(() => {})
   }, [id])
 
   function actualizarCampo(campo) {
@@ -81,6 +93,9 @@ export function DocumentoDetallePage() {
         total: form.total === '' ? null : Number(form.total),
         observaciones: form.observaciones || null,
         ...(form.terceroNit ? { terceroNit: form.terceroNit, terceroRazonSocial: form.terceroRazonSocial } : {}),
+        cuentaContableCodigo: form.cuentaContableCodigo || null,
+        centroCostoCodigo: form.centroCostoCodigo || null,
+        formaPagoCodigo: form.formaPagoCodigo || null,
       })
       setDocumento(doc)
       setForm(aFormulario(doc))
@@ -233,6 +248,37 @@ export function DocumentoDetallePage() {
               <Input type="number" step="0.01" value={form.total} onChange={actualizarCampo('total')} />
             </Campo>
 
+            <Campo label="Cuenta contable">
+              <select value={form.cuentaContableCodigo} onChange={actualizarCampo('cuentaContableCodigo')} className={SELECT}>
+                <option value="">— Sin asignar —</option>
+                {cuentas.map((c) => (
+                  <option key={c.id} value={c.codigo}>
+                    {c.codigo} — {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo label="Centro de costo">
+              <select value={form.centroCostoCodigo} onChange={actualizarCampo('centroCostoCodigo')} className={SELECT}>
+                <option value="">— Sin asignar —</option>
+                {centros.map((c) => (
+                  <option key={c.id} value={c.codigo}>
+                    {c.codigo} — {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo label="Forma de pago" className="col-span-2">
+              <select value={form.formaPagoCodigo} onChange={actualizarCampo('formaPagoCodigo')} className={SELECT}>
+                <option value="">— Sin asignar —</option>
+                {formasPago.map((f) => (
+                  <option key={f.id} value={f.codigo}>
+                    {f.codigo} — {f.nombre}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+
             {documento.impuestos?.length > 0 && (
               <div className="col-span-2 rounded-lg bg-slate-50 p-2 text-xs text-slate-500">
                 Impuestos: {documento.impuestos.map((i) => `${i.codigo} (${i.valor})`).join(', ')}
@@ -280,11 +326,8 @@ function Campo({ label, className = '', children }) {
   )
 }
 
+const SELECT = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100'
+
 function Input(props) {
-  return (
-    <input
-      {...props}
-      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-    />
-  )
+  return <input {...props} className={SELECT} />
 }

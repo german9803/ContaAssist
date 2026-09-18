@@ -26,6 +26,11 @@ function serializarDocumento(doc, validaciones) {
     tercero: doc.tercero
       ? { id: doc.tercero.id, identificacion: doc.tercero.identificacion, razonSocial: doc.tercero.razonSocial }
       : null,
+    cuentaContable: doc.cuentaContable
+      ? { id: doc.cuentaContable.id, codigo: doc.cuentaContable.codigo, nombre: doc.cuentaContable.nombre }
+      : null,
+    centroCosto: doc.centroCosto ? { id: doc.centroCosto.id, codigo: doc.centroCosto.codigo, nombre: doc.centroCosto.nombre } : null,
+    formaPago: doc.formaPago ? { id: doc.formaPago.id, codigo: doc.formaPago.codigo, nombre: doc.formaPago.nombre } : null,
     subtotal: doc.subtotal,
     totalImpuestos: doc.totalImpuestos,
     total: doc.total,
@@ -46,6 +51,9 @@ function serializarDocumento(doc, validaciones) {
 
 const INCLUYE_DETALLE = {
   tercero: true,
+  cuentaContable: true,
+  centroCosto: true,
+  formaPago: true,
   archivoOrigen: { select: { cargaId: true, nombreOriginal: true, extension: true } },
   impuestos: { include: { impuesto: true } },
 }
@@ -130,6 +138,13 @@ export async function obtenerDocumento({ empresaId, documentoId }) {
   return serializarDocumento(doc, validaciones)
 }
 
+async function resolverCatalogo(delegate, empresaId, codigo, etiqueta) {
+  if (!codigo) return null // permite desasignar enviando null/''
+  const registro = await delegate.findUnique({ where: { empresaId_codigo: { empresaId, codigo } } })
+  if (!registro) throw new DocumentoError(`${etiqueta} con código "${codigo}" no existe en esta empresa`, 404)
+  return registro.id
+}
+
 export async function actualizarDocumento({ empresaId, documentoId, usuarioId, cambios }) {
   const existente = await prisma.documento.findFirst({ where: { id: documentoId, empresaId } })
   if (!existente) throw new DocumentoError('Documento no encontrado', 404)
@@ -163,6 +178,19 @@ export async function actualizarDocumento({ empresaId, documentoId, usuarioId, c
       tipoTercero: tipoTerceroSegunDocumento(data.tipoDocumento || existente.tipoDocumento),
     })
     data.terceroId = tercero.id
+  }
+
+  // A diferencia del tercero, estos catálogos no se auto-crean: deben existir
+  // ya en Configuración (Fase 11) — si el código no existe, es un error del
+  // usuario al escribirlo, no un dato nuevo que debamos inventar.
+  if (cambios.cuentaContableCodigo !== undefined) {
+    data.cuentaContableId = await resolverCatalogo(prisma.cuentaContable, empresaId, cambios.cuentaContableCodigo, 'Cuenta contable')
+  }
+  if (cambios.centroCostoCodigo !== undefined) {
+    data.centroCostoId = await resolverCatalogo(prisma.centroCosto, empresaId, cambios.centroCostoCodigo, 'Centro de costo')
+  }
+  if (cambios.formaPagoCodigo !== undefined) {
+    data.formaPagoId = await resolverCatalogo(prisma.formaPago, empresaId, cambios.formaPagoCodigo, 'Forma de pago')
   }
 
   const camposCambiados = Object.keys(data)

@@ -27,6 +27,12 @@ model Empresa {
   auditoria           Auditoria[]
   terceros            Tercero[]
   documentos          Documento[]
+  cuentasContables    CuentaContable[]
+  centrosCosto        CentroCosto[]
+  formasPago          FormaPago[]
+  mapeoCuentas        MapeoCuenta[]
+  mapeoTerceros       MapeoTercero[]
+  mapeoFormasPago     MapeoFormaPago[]
 
   @@map("empresas")
 }
@@ -156,8 +162,9 @@ model Tercero {
   ciudad             String? @db.VarChar(80)
   activo             Boolean @default(true)
 
-  empresa    Empresa     @relation(fields: [empresaId], references: [id])
+  empresa    Empresa        @relation(fields: [empresaId], references: [id])
   documentos Documento[]
+  mapeos     MapeoTercero[]
 
   @@unique([empresaId, tipoIdentificacion, identificacion])
   @@index([empresaId, tipoTercero])
@@ -174,6 +181,9 @@ model Documento {
   fechaEmision     DateTime? @map("fecha_emision") @db.Date
   fechaVencimiento DateTime? @map("fecha_vencimiento") @db.Date
   terceroId        String?   @map("tercero_id") @db.Uuid
+  cuentaContableId String?   @map("cuenta_contable_id") @db.Uuid
+  centroCostoId    String?   @map("centro_costo_id") @db.Uuid
+  formaPagoId      String?   @map("forma_pago_id") @db.Uuid
   subtotal         Decimal?  @db.Decimal(18, 2)
   totalImpuestos   Decimal?  @map("total_impuestos") @db.Decimal(18, 2)
   totalRetenciones Decimal?  @map("total_retenciones") @db.Decimal(18, 2)
@@ -184,11 +194,14 @@ model Documento {
   observaciones    String?   @db.VarChar(1000)
   creadoEn         DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
 
-  empresa       Empresa        @relation(fields: [empresaId], references: [id])
-  archivoOrigen ArchivoOrigen? @relation(fields: [archivoOrigenId], references: [id])
-  tercero       Tercero?       @relation(fields: [terceroId], references: [id])
-  impuestos     DocumentoImpuesto[]
-  validaciones  DocumentoValidacion[]
+  empresa        Empresa         @relation(fields: [empresaId], references: [id])
+  archivoOrigen  ArchivoOrigen?  @relation(fields: [archivoOrigenId], references: [id])
+  tercero        Tercero?        @relation(fields: [terceroId], references: [id])
+  cuentaContable CuentaContable? @relation(fields: [cuentaContableId], references: [id])
+  centroCosto    CentroCosto?    @relation(fields: [centroCostoId], references: [id])
+  formaPago      FormaPago?      @relation(fields: [formaPagoId], references: [id])
+  impuestos      DocumentoImpuesto[]
+  validaciones   DocumentoValidacion[]
 
   @@index([empresaId, estado])
   @@index([empresaId, terceroId])
@@ -252,6 +265,115 @@ model DocumentoValidacion {
 
   @@index([documentoId, evaluadoEn(sort: Desc)])
   @@map("documento_validaciones")
+}
+
+// ── Fase 11: catálogos contables y mapeo de datos (ver /docs/database.md §5-6)
+//
+// Cierra el hueco dejado a propósito en Fase 7/8: documentos.cuenta_contable_id
+// / centro_costo_id / forma_pago_id ahora sí tienen a qué apuntar, y las 3
+// reglas de validación pendientes de Fase 8 (CUENTA_NO_ASIGNADA,
+// CENTRO_COSTO_REQUERIDO, FORMA_PAGO_FALTANTE) ya se pueden implementar.
+
+model CuentaContable {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empresaId  String  @map("empresa_id") @db.Uuid
+  codigo     String  @db.VarChar(20)
+  nombre     String  @db.VarChar(150)
+  naturaleza String  @db.VarChar(10) // DEBITO, CREDITO
+  activa     Boolean @default(true)
+
+  empresa    Empresa       @relation(fields: [empresaId], references: [id])
+  documentos Documento[]
+  mapeos     MapeoCuenta[]
+
+  @@unique([empresaId, codigo])
+  @@map("cuentas_contables")
+}
+
+model CentroCosto {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empresaId String  @map("empresa_id") @db.Uuid
+  codigo    String  @db.VarChar(20)
+  nombre    String  @db.VarChar(150)
+  activo    Boolean @default(true)
+
+  empresa    Empresa     @relation(fields: [empresaId], references: [id])
+  documentos Documento[]
+
+  @@unique([empresaId, codigo])
+  @@map("centros_costo")
+}
+
+model FormaPago {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empresaId String @map("empresa_id") @db.Uuid
+  codigo    String @db.VarChar(20)
+  nombre    String @db.VarChar(80)
+
+  empresa    Empresa          @relation(fields: [empresaId], references: [id])
+  documentos Documento[]
+  mapeos     MapeoFormaPago[]
+
+  @@unique([empresaId, codigo])
+  @@map("formas_pago")
+}
+
+model SistemaDestino {
+  id                    Int     @id @default(autoincrement())
+  codigo                String  @unique @db.VarChar(30) // WORDOFFICE, SIIGO, EXCEL, CSV
+  nombre                String  @db.VarChar(80)
+  versionFormatoActual  String? @map("version_formato_actual") @db.VarChar(20)
+
+  mapeoCuentas    MapeoCuenta[]
+  mapeoTerceros   MapeoTercero[]
+  mapeoFormasPago MapeoFormaPago[]
+
+  @@map("sistemas_destino")
+}
+
+model MapeoCuenta {
+  id               String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empresaId        String @map("empresa_id") @db.Uuid
+  sistemaDestinoId Int    @map("sistema_destino_id")
+  cuentaContableId String @map("cuenta_contable_id") @db.Uuid
+  codigoDestino    String @map("codigo_destino") @db.VarChar(50)
+
+  empresa        Empresa        @relation(fields: [empresaId], references: [id])
+  sistemaDestino SistemaDestino @relation(fields: [sistemaDestinoId], references: [id])
+  cuentaContable CuentaContable @relation(fields: [cuentaContableId], references: [id])
+
+  @@unique([empresaId, sistemaDestinoId, cuentaContableId])
+  @@map("mapeo_cuentas")
+}
+
+model MapeoTercero {
+  id               String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empresaId        String @map("empresa_id") @db.Uuid
+  sistemaDestinoId Int    @map("sistema_destino_id")
+  terceroId        String @map("tercero_id") @db.Uuid
+  codigoDestino    String @map("codigo_destino") @db.VarChar(50)
+
+  empresa        Empresa        @relation(fields: [empresaId], references: [id])
+  sistemaDestino SistemaDestino @relation(fields: [sistemaDestinoId], references: [id])
+  tercero        Tercero        @relation(fields: [terceroId], references: [id])
+
+  @@unique([empresaId, sistemaDestinoId, terceroId])
+  @@map("mapeo_terceros")
+}
+
+model MapeoFormaPago {
+  id               String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empresaId        String @map("empresa_id") @db.Uuid
+  sistemaDestinoId Int    @map("sistema_destino_id")
+  formaPagoId      String @map("forma_pago_id") @db.Uuid
+  codigoDestino    String @map("codigo_destino") @db.VarChar(50)
+
+  empresa        Empresa        @relation(fields: [empresaId], references: [id])
+  sistemaDestino SistemaDestino @relation(fields: [sistemaDestinoId], references: [id])
+  formaPago      FormaPago      @relation(fields: [formaPagoId], references: [id])
+
+  @@unique([empresaId, sistemaDestinoId, formaPagoId])
+  @@map("mapeo_formas_pago")
 }
 
 // ── Auditoría (sección 23) ───────────────────────────────────────────────────

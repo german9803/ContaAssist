@@ -14,7 +14,7 @@ Cada fase deja una base funcional para la siguiente. No se avanza a la siguiente
 | 8 | Motor de validaciones | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 9 | Compras y ventas (módulos de negocio sobre `documentos`) | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 10 | Terceros | **Completa** — probada de punta a punta contra PostgreSQL local |
-| 11 | Mapeo de datos | Pendiente |
+| 11 | Mapeo de datos | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 12 | Motor de transformación (interfaz de adaptador) | Pendiente |
 | 13 | Motor de exportación (adaptadores Excel/CSV, sin bloqueos externos) | Pendiente |
 | 14 | Primer adaptador de software contable real (WordOffice o Siigo) | **Bloqueada** — requiere documentación/plantilla/ejemplo oficial (ver `transformation-engine.md`) |
@@ -120,6 +120,18 @@ Decisión de diseño: `PATCH` no permite cambiar `tipoIdentificacion`/`identific
 **Bug real corregido en Fase 9** (clasificación de terceros como `PROVEEDOR` sin importar el contexto) ya deja `buscarOCrearTercero` clasificando correctamente por tipo de documento; Fase 10 no tuvo que tocar esa lógica, solo construir la gestión manual encima.
 
 Probado de punta a punta contra PostgreSQL real: NIT real (Bancolombia 890903938) con DV autocalculado en 8, DV incorrecto rechazado (400), identificación duplicada rechazada (409), cédula sin DV, búsqueda parcial, filtro por tipo, edición de campos editables, intento de cambiar la identificación (ignorado), desactivación, permisos (`CONSULTA` no crea — 403, sí lista), y auditoría de `CREAR_TERCERO`/`MODIFICAR_TERCERO`.
+
+## Nota sobre Fase 11
+
+Modelos nuevos: `CuentaContable`, `CentroCosto`, `FormaPago` (catálogos por empresa, `@@unique([empresaId, codigo])`), `SistemaDestino` (catálogo global sembrado con WORDOFFICE/SIIGO/EXCEL/CSV) y las tablas de equivalencia `MapeoCuenta`/`MapeoTercero`/`MapeoFormaPago` (`@@unique([empresaId, sistemaDestinoId, <entidad>Id])`). `Documento` gana `cuentaContableId`/`centroCostoId`/`formaPagoId`, nullables — la asignación es opcional durante la revisión, no un requisito para recibir/procesar el documento.
+
+Backend: módulo `configuracion-contable` (`/api/config`) con CRUD de listar/crear para los tres catálogos más lectura de sistemas destino; módulo `mapeo` (`/api/mapeos`) con listar/guardar por sistema destino — cuentas y formas de pago devuelven el catálogo completo fusionado con el mapeo existente (para que la UI muestre también lo no mapeado), terceros solo devuelve lo ya mapeado (el catálogo puede ser grande; nuevos se agregan por búsqueda+id). `documentos.service.js` gana `resolverCatalogo()`: a diferencia de terceros, un código de cuenta/centro/forma que no exista en el catálogo de la empresa devuelve 404 en vez de crearse solo.
+
+3 reglas de validación nuevas (ADVERTENCIA, no bloquean aprobación): `CUENTA_NO_ASIGNADA`, `CENTRO_COSTO_REQUERIDO`, `FORMA_PAGO_FALTANTE` — completan las 10 reglas de `validation-engine.md` (las 7 anteriores dependían de datos que ya existían desde Fase 7/8; estas tres esperaban a que el documento pudiera tener estos campos).
+
+Frontend: `ConfiguracionPage` pasa a tabs (Equipo de Fase 4 + nuevo Catálogos contables, componente compartido `TablaCatalogo` para no triplicar la misma UI de listar+crear); `MapeoPage` nueva con selector de sistema destino y tres secciones editables; `DocumentoDetallePage` gana los tres selects de asignación, incluyendo la opción de dejar el campo sin asignar (`null`).
+
+Probado de punta a punta contra PostgreSQL real: creación de catálogos, guardado y actualización de mapeos por sistema destino, asignación y desasignación (`null`) de cuenta/centro/forma de pago sobre un documento, permisos por rol (`CONSULTA` recibe 403 al intentar crear catálogos o guardar mapeos, pero sí puede leer `GET /api/config/sistemas-destino`). Sin bugs nuevos encontrados en esta fase. Suite de tests: 49/49 pasando.
 
 ## Información que el usuario debe aportar antes de Fase 14
 

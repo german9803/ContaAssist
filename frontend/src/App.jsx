@@ -11,7 +11,8 @@ import { DocumentoDetallePage } from './pages/DocumentoDetallePage.jsx'
 import { ComprasPage } from './pages/ComprasPage.jsx'
 import { VentasPage } from './pages/VentasPage.jsx'
 import { TercerosPage } from './pages/TercerosPage.jsx'
-import { EquipoPage } from './pages/configuracion/EquipoPage.jsx'
+import { MapeoPage } from './pages/MapeoPage.jsx'
+import { ConfiguracionPage } from './pages/ConfiguracionPage.jsx'
 import { MODULOS } from './lib/navegacion.js'
 
 function App() {
@@ -29,7 +30,8 @@ function App() {
           <Route path="/compras" element={<ComprasPage />} />
           <Route path="/ventas" element={<VentasPage />} />
           <Route path="/terceros" element={<TercerosPage />} />
-          <Route path="/configuracion" element={<EquipoPage />} />
+          <Route path="/mapeo" element={<MapeoPage />} />
+          <Route path="/configuracion" element={<ConfiguracionPage />} />
 
           {MODULOS.filter((m) => !m.implementado).map(({ path, label, fase, nota }) => (
             <Route key={path} path={path} element={<PlaceholderPage titulo={label} fase={fase} nota={nota} />} />

@@ -29,7 +29,7 @@ export const MODULOS = [
   { path: '/cartera', label: 'Cartera', icon: Wallet, fase: 15 },
   { path: '/cuentas-por-pagar', label: 'Cuentas por pagar', icon: CreditCard, fase: 15 },
   { path: '/inventario', label: 'Inventario', icon: Package, fase: 15 },
-  { path: '/mapeo', label: 'Mapeo de datos', icon: ArrowLeftRight, fase: 11 },
+  { path: '/mapeo', label: 'Mapeo de datos', icon: ArrowLeftRight, implementado: true },
   { path: '/exportaciones', label: 'Exportaciones', icon: FileOutput, fase: 13 },
   { path: '/reportes', label: 'Reportes', icon: BarChart3, nota: 'Depende de que existan documentos (Fase 7) y exportaciones (Fase 13)' },
   { path: '/asistente-ia', label: 'Asistente IA', icon: Sparkles, fase: 17 },

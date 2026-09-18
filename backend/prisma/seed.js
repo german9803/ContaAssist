@@ -24,6 +24,9 @@ const REGLAS_VALIDACION = [
   { codigo: 'NIT_INVALIDO', descripcion: 'NIT con formato o dígito de verificación inválido', severidad: 'BLOQUEANTE' },
   { codigo: 'DUPLICADO_DOCUMENTO', descripcion: 'Mismo tercero, número y tipo que otro documento existente', severidad: 'BLOQUEANTE' },
   { codigo: 'IMPUESTO_INCONSISTENTE', descripcion: 'La suma de impuestos detallados no coincide con el total declarado', severidad: 'ADVERTENCIA' },
+  { codigo: 'CUENTA_NO_ASIGNADA', descripcion: 'El documento no tiene cuenta contable asignada', severidad: 'ADVERTENCIA' },
+  { codigo: 'CENTRO_COSTO_REQUERIDO', descripcion: 'El documento no tiene centro de costo asignado', severidad: 'ADVERTENCIA' },
+  { codigo: 'FORMA_PAGO_FALTANTE', descripcion: 'El documento no tiene forma de pago asignada', severidad: 'ADVERTENCIA' },
 ]
 
 async function seedRoles() {
@@ -46,6 +49,27 @@ async function seedImpuestos() {
     })
   }
   console.log(`Impuestos: ${IMPUESTOS.length} sincronizados`)
+}
+
+// Catálogo global (no depende de empresa) de sistemas destino conocidos.
+// WordOffice/Siigo quedan sin versionFormatoActual hasta tener documentación
+// oficial (Fase 14) — Excel/CSV son formato propio, sin bloqueo externo.
+const SISTEMAS_DESTINO = [
+  { codigo: 'WORDOFFICE', nombre: 'WordOffice' },
+  { codigo: 'SIIGO', nombre: 'Siigo' },
+  { codigo: 'EXCEL', nombre: 'Excel', versionFormatoActual: '1.0' },
+  { codigo: 'CSV', nombre: 'CSV', versionFormatoActual: '1.0' },
+]
+
+async function seedSistemasDestino() {
+  for (const sistema of SISTEMAS_DESTINO) {
+    await prisma.sistemaDestino.upsert({
+      where: { codigo: sistema.codigo },
+      update: { nombre: sistema.nombre },
+      create: sistema,
+    })
+  }
+  console.log(`Sistemas destino: ${SISTEMAS_DESTINO.length} sincronizados`)
 }
 
 async function seedReglasValidacion() {
@@ -102,6 +126,7 @@ async function seedAdminDemo() {
 async function main() {
   await seedRoles()
   await seedImpuestos()
+  await seedSistemasDestino()
   await seedReglasValidacion()
   await seedAdminDemo()
 }
