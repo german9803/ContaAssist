@@ -47,14 +47,20 @@ GET    /api/cargas/:id/archivos
 
 ## Documentos
 ```
-GET    /api/documentos?estado=&tipo=&tercero=&fechaDesde=&fechaHasta=&page=
-GET    /api/documentos/:id              (incluye detalles, impuestos, retenciones, validaciones)
-PATCH  /api/documentos/:id              (edición en revisión)
-POST   /api/documentos/:id/aprobar
-POST   /api/documentos/:id/rechazar
+GET    /api/documentos?estado=&tipoDocumento=&tercero=&fechaDesde=&fechaHasta=&page=
+                                         (tercero busca por razón social o identificación, insensible a mayúsculas)
+GET    /api/documentos/resumen?tipoDocumento=&fechaDesde=&fechaHasta=
+                                         (KPIs para Compras/Ventas: totalDocumentos, totalValor,
+                                          porEstado: [{estado, cantidad, valor}])
+GET    /api/documentos/:id              (incluye tercero, impuestos, validaciones)
+PATCH  /api/documentos/:id              (edición en revisión; ADMINISTRADOR/AUXILIAR_CONTABLE/CONTADOR)
+POST   /api/documentos/:id/aprobar      (ADMINISTRADOR/CONTADOR; 409 si hay reglas BLOQUEANTE en falla)
+POST   /api/documentos/:id/rechazar     (ADMINISTRADOR/CONTADOR; body opcional {motivo})
 GET    /api/documentos/:id/archivo-original   (stream del PDF/imagen para el panel de revisión)
-POST   /api/documentos/:id/revalidar
+POST   /api/documentos/:id/revalidar    (ADMINISTRADOR/AUXILIAR_CONTABLE/CONTADOR)
 ```
+
+**Compras** (`/compras` en el frontend) y **Ventas** (`/ventas`) no son endpoints propios — son la misma bandeja de Documentos con `tipoDocumento` fijo (`FACTURA_COMPRA` / `FACTURA_VENTA`) más `GET /api/documentos/resumen` para los KPIs de cabecera.
 
 ## Mapeo
 ```

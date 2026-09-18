@@ -12,7 +12,7 @@ Cada fase deja una base funcional para la siguiente. No se avanza a la siguiente
 | 6 | Centro de carga (subida de archivos, registro de cargas) | **Completa** — probada de punta a punta contra PostgreSQL local y confirmada por el usuario en navegador |
 | 7 | Documentos y procesamiento (parsers, modelo interno) | **Completa** — probada de punta a punta contra PostgreSQL local y confirmada por el usuario en navegador |
 | 8 | Motor de validaciones | **Completa** — probada de punta a punta contra PostgreSQL local |
-| 9 | Compras y ventas (módulos de negocio sobre `documentos`) | Pendiente |
+| 9 | Compras y ventas (módulos de negocio sobre `documentos`) | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 10 | Terceros | Pendiente |
 | 11 | Mapeo de datos | Pendiente |
 | 12 | Motor de transformación (interfaz de adaptador) | Pendiente |
@@ -98,6 +98,18 @@ El motor se dispara automáticamente al final del procesamiento de Fase 7 (mismo
 2. Un `node src/server.js &` lanzado en foreground dentro de un script largo de una sola llamada de herramienta se quedó colgado sin logs — se resolvió siempre arrancando el servidor con `run_in_background`/`nohup` en un paso separado, nunca `&` inline dentro de un script combinado.
 
 Probado de punta a punta contra PostgreSQL real: ciclo completo aprobar bloqueado por error → corregir vía PATCH → revalida automático → aprobar exitoso → reintentar aprobar ya aprobado (409); rechazar con motivo; permisos por rol (`AUXILIAR_CONTABLE` revalida pero no aprueba/rechaza — 403; `CONSULTA` no puede ninguna acción de escritura pero sí ve el detalle).
+
+## Nota sobre Fase 9
+
+Compras y Ventas no son módulos nuevos de negocio — son la bandeja de Documentos (Fase 7/8) con `tipoDocumento` fijo, más un endpoint de KPIs. Se implementó una sola vez (`components/documentos/DocumentosPorTipo.jsx`) y `ComprasPage`/`VentasPage` son wrappers de 8 líneas; evita duplicar la tabla/filtros/lógica tres veces.
+
+Backend:
+- `GET /api/documentos` gana los filtros `tercero` (busca por razón social o NIT, insensible a mayúsculas) y `fechaDesde`/`fechaHasta` — ya estaban documentados en `api.md` desde Fase 1 pero nunca se habían implementado.
+- Nuevo `GET /api/documentos/resumen` (`prisma.documento.groupBy` por estado) para los KPIs de cabecera de Compras/Ventas: total de documentos, valor total, pendientes de revisión, aprobados.
+
+**Bug real encontrado y corregido antes de construir Ventas:** `buscarOCrearTercero` clasificaba todo tercero nuevo como `PROVEEDOR` sin importar el contexto — una factura de venta habría creado "clientes" marcados como proveedores. Se corrigió: el tipo de tercero ahora se deriva del `tipoDocumento` (`FACTURA_COMPRA` → `PROVEEDOR`, `FACTURA_VENTA` → `CLIENTE`), y si el mismo NIT vuelve a aparecer con un rol distinto (una empresa que nos compra y nos vende) se reclasifica a `AMBOS` en vez de perder la clasificación original. Verificado con un NIT real subido primero como compra y luego como venta → quedó `AMBOS`.
+
+Probado de punta a punta contra PostgreSQL real: resumen por tipo+estado con cifras correctas, filtro por tercero (parcial, case-insensitive) devolviendo documentos de compra y venta del mismo tercero, filtro por rango de fechas exacto, y combinación tipoDocumento+estado.
 
 ## Información que el usuario debe aportar antes de Fase 14
 

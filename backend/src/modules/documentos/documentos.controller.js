@@ -6,6 +6,7 @@ import {
   aprobarDocumento,
   rechazarDocumento,
   obtenerArchivoOriginalDeDocumento,
+  obtenerResumen,
   DocumentoError,
 } from './documentos.service.js'
 
@@ -18,15 +19,27 @@ function manejarError(error, res, next) {
 
 export async function getDocumentos(req, res, next) {
   try {
-    const { estado, tipoDocumento, page, pageSize } = req.query
+    const { estado, tipoDocumento, tercero, fechaDesde, fechaHasta, page, pageSize } = req.query
     const resultado = await listarDocumentos({
       empresaId: req.empresaId,
       estado,
       tipoDocumento,
+      tercero,
+      fechaDesde,
+      fechaHasta,
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
     })
     res.json(resultado)
+  } catch (error) {
+    manejarError(error, res, next)
+  }
+}
+
+export async function getResumen(req, res, next) {
+  try {
+    const { tipoDocumento, fechaDesde, fechaHasta } = req.query
+    res.json(await obtenerResumen({ empresaId: req.empresaId, tipoDocumento, fechaDesde, fechaHasta }))
   } catch (error) {
     manejarError(error, res, next)
   }

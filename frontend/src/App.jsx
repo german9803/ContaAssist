@@ -8,6 +8,8 @@ import { PlaceholderPage } from './pages/PlaceholderPage.jsx'
 import { CentroCargaPage } from './pages/CentroCargaPage.jsx'
 import { DocumentosPage } from './pages/DocumentosPage.jsx'
 import { DocumentoDetallePage } from './pages/DocumentoDetallePage.jsx'
+import { ComprasPage } from './pages/ComprasPage.jsx'
+import { VentasPage } from './pages/VentasPage.jsx'
 import { EquipoPage } from './pages/configuracion/EquipoPage.jsx'
 import { MODULOS } from './lib/navegacion.js'
 
@@ -23,6 +25,8 @@ function App() {
           <Route path="/centro-carga" element={<CentroCargaPage />} />
           <Route path="/documentos" element={<DocumentosPage />} />
           <Route path="/documentos/:id" element={<DocumentoDetallePage />} />
+          <Route path="/compras" element={<ComprasPage />} />
+          <Route path="/ventas" element={<VentasPage />} />
           <Route path="/configuracion" element={<EquipoPage />} />
 
           {MODULOS.filter((m) => !m.implementado).map(({ path, label, fase, nota }) => (

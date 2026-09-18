@@ -167,7 +167,8 @@ export const api = {
   },
 
   listarDocumentos: (params = {}) => {
-    const query = new URLSearchParams(params).toString()
+    const limpios = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''))
+    const query = new URLSearchParams(limpios).toString()
     return request(`/api/documentos${query ? `?${query}` : ''}`)
   },
   obtenerDocumento: (id) => request(`/api/documentos/${id}`),
@@ -175,4 +176,9 @@ export const api = {
   revalidarDocumento: (id) => request(`/api/documentos/${id}/revalidar`, { method: 'POST' }),
   aprobarDocumento: (id) => request(`/api/documentos/${id}/aprobar`, { method: 'POST' }),
   rechazarDocumento: (id, motivo) => request(`/api/documentos/${id}/rechazar`, { method: 'POST', body: { motivo } }),
+  obtenerResumenDocumentos: (params = {}) => {
+    const limpios = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''))
+    const query = new URLSearchParams(limpios).toString()
+    return request(`/api/documentos/resumen${query ? `?${query}` : ''}`)
+  },
 }

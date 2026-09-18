@@ -1,7 +1,7 @@
 import { prisma } from '../../shared/prisma.js'
 import { registrarAuditoria } from '../../audit/audit.service.js'
 import { buscarOCrearTercero } from '../../document-processing/terceros.interno.js'
-import { TIPOS_DOCUMENTO } from '../../document-processing/tiposDocumento.js'
+import { TIPOS_DOCUMENTO, tipoTerceroSegunDocumento } from '../../document-processing/tiposDocumento.js'
 import { leerArchivo } from '../cargas/cargas.storage.js'
 import { ejecutarValidaciones, obtenerUltimosResultados } from '../../validation-engine/engine.js'
 
@@ -50,12 +50,40 @@ const INCLUYE_DETALLE = {
   impuestos: { include: { impuesto: true } },
 }
 
-export async function listarDocumentos({ empresaId, estado, tipoDocumento, page = 1, pageSize = 20 }) {
-  const where = {
+function construirFiltro({ empresaId, estado, tipoDocumento, tercero, fechaDesde, fechaHasta }) {
+  const fechaEmision = {}
+  if (fechaDesde) fechaEmision.gte = new Date(fechaDesde)
+  if (fechaHasta) fechaEmision.lte = new Date(fechaHasta)
+
+  return {
     empresaId,
     ...(estado ? { estado } : {}),
     ...(tipoDocumento ? { tipoDocumento } : {}),
+    ...(Object.keys(fechaEmision).length > 0 ? { fechaEmision } : {}),
+    ...(tercero
+      ? {
+          tercero: {
+            OR: [
+              { razonSocial: { contains: tercero, mode: 'insensitive' } },
+              { identificacion: { contains: tercero } },
+            ],
+          },
+        }
+      : {}),
   }
+}
+
+export async function listarDocumentos({
+  empresaId,
+  estado,
+  tipoDocumento,
+  tercero,
+  fechaDesde,
+  fechaHasta,
+  page = 1,
+  pageSize = 20,
+}) {
+  const where = construirFiltro({ empresaId, estado, tipoDocumento, tercero, fechaDesde, fechaHasta })
   const [total, documentos] = await Promise.all([
     prisma.documento.count({ where }),
     prisma.documento.findMany({
@@ -67,6 +95,32 @@ export async function listarDocumentos({ empresaId, estado, tipoDocumento, page 
     }),
   ])
   return { data: documentos.map((doc) => serializarDocumento(doc)), total, page, pageSize }
+}
+
+// KPIs para las pantallas de Compras/Ventas (Fase 9): cantidad y valor total
+// por estado, dentro de un tipo de documento y rango de fechas opcionales.
+export async function obtenerResumen({ empresaId, tipoDocumento, fechaDesde, fechaHasta }) {
+  const where = construirFiltro({ empresaId, tipoDocumento, fechaDesde, fechaHasta })
+
+  const porEstado = await prisma.documento.groupBy({
+    by: ['estado'],
+    where,
+    _count: { _all: true },
+    _sum: { total: true },
+  })
+
+  const totalDocumentos = porEstado.reduce((acc, e) => acc + e._count._all, 0)
+  const totalValor = porEstado.reduce((acc, e) => acc + Number(e._sum.total || 0), 0)
+
+  return {
+    totalDocumentos,
+    totalValor,
+    porEstado: porEstado.map((e) => ({
+      estado: e.estado,
+      cantidad: e._count._all,
+      valor: Number(e._sum.total || 0),
+    })),
+  }
 }
 
 export async function obtenerDocumento({ empresaId, documentoId }) {
@@ -106,6 +160,7 @@ export async function actualizarDocumento({ empresaId, documentoId, usuarioId, c
       empresaId,
       nit: cambios.terceroNit,
       razonSocial: cambios.terceroRazonSocial || cambios.terceroNit,
+      tipoTercero: tipoTerceroSegunDocumento(data.tipoDocumento || existente.tipoDocumento),
     })
     data.terceroId = tercero.id
   }

@@ -5,6 +5,7 @@ import { parsearXlsx } from './xlsxParser.js'
 import { parsearXmlFactura } from './xmlParser.js'
 import { extraerTextoPdf } from './pdfParser.js'
 import { ejecutarValidaciones } from '../validation-engine/engine.js'
+import { tipoTerceroSegunDocumento } from './tiposDocumento.js'
 
 async function idImpuesto(codigo, cache) {
   if (!codigo) return null
@@ -19,6 +20,7 @@ async function crearDocumentoDesdeBorrador({ empresaId, archivoOrigenId, borrado
     empresaId,
     nit: borrador.nit,
     razonSocial: borrador.razonSocialTercero,
+    tipoTercero: tipoTerceroSegunDocumento(borrador.tipoDocumento),
   })
 
   const documento = await prisma.documento.create({
