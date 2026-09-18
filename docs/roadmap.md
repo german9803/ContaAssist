@@ -15,7 +15,7 @@ Cada fase deja una base funcional para la siguiente. No se avanza a la siguiente
 | 9 | Compras y ventas (módulos de negocio sobre `documentos`) | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 10 | Terceros | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 11 | Mapeo de datos | **Completa** — probada de punta a punta contra PostgreSQL local |
-| 12 | Motor de transformación (interfaz de adaptador) | Pendiente |
+| 12 | Motor de transformación (interfaz de adaptador) | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 13 | Motor de exportación (adaptadores Excel/CSV, sin bloqueos externos) | Pendiente |
 | 14 | Primer adaptador de software contable real (WordOffice o Siigo) | **Bloqueada** — requiere documentación/plantilla/ejemplo oficial (ver `transformation-engine.md`) |
 | 15 | Bancos, cartera y cuentas por pagar | Pendiente |
@@ -132,6 +132,14 @@ Backend: módulo `configuracion-contable` (`/api/config`) con CRUD de listar/cre
 Frontend: `ConfiguracionPage` pasa a tabs (Equipo de Fase 4 + nuevo Catálogos contables, componente compartido `TablaCatalogo` para no triplicar la misma UI de listar+crear); `MapeoPage` nueva con selector de sistema destino y tres secciones editables; `DocumentoDetallePage` gana los tres selects de asignación, incluyendo la opción de dejar el campo sin asignar (`null`).
 
 Probado de punta a punta contra PostgreSQL real: creación de catálogos, guardado y actualización de mapeos por sistema destino, asignación y desasignación (`null`) de cuenta/centro/forma de pago sobre un documento, permisos por rol (`CONSULTA` recibe 403 al intentar crear catálogos o guardar mapeos, pero sí puede leer `GET /api/config/sistemas-destino`). Sin bugs nuevos encontrados en esta fase. Suite de tests: 49/49 pasando.
+
+## Nota sobre Fase 12
+
+Motor de transformación (`backend/src/transformation-engine/`): solo el núcleo y la interfaz de adaptador descrita en `transformation-engine.md`, sin construir ningún adaptador concreto — WordOffice/Siigo siguen bloqueados por falta de insumos oficiales, y Excel/CSV están planeados para Fase 13, no antes (no se adelanta trabajo de fases siguientes).
+
+`registry.js` mantiene la lista de adaptadores registrados (vacía por ahora); `engine.js` resuelve el adaptador por `sistemas_destino.codigo`, carga los documentos y el mapeo de la empresa para ese destino, y expone `resolverPrerequisitosExportacion` (aplica el paso 6 de `data-flow.md`: pasa a `LISTO_PARA_EXPORTAR` los documentos sin errores de prerequisito, deja el resto en `APROBADO`) y `transformarParaExportar` (aplica el adaptador sobre documentos ya listos, sin generar archivo — eso queda para `export-engine` en Fase 13).
+
+Como ningún adaptador real existe todavía, el motor no se conectó a ningún endpoint ni pantalla nueva — exponerlo ahora solo devolvería 501 en los 4 destinos sembrados. Se verificó con un adaptador de prueba (no commiteado) directamente contra PostgreSQL real: documento con cuenta/tercero/forma de pago mapeados a EXCEL → queda `LISTO_PARA_EXPORTAR` y `transformar` arma el registro correcto; documento con una referencia sin mapear → se queda en `APROBADO`, reportado como pendiente; `transformarParaExportar` rechaza (409) un documento que no llegó a `LISTO_PARA_EXPORTAR`; sistema destino sin adaptador (SIIGO) → 501. Lógica pura (`clasificarPorPrerequisitos`, registro de adaptadores) cubierta con tests unitarios. Suite: 53/53 pasando.
 
 ## Información que el usuario debe aportar antes de Fase 14
 

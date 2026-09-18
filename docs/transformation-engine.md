@@ -53,6 +53,17 @@ Antes de escribir el adaptador de WordOffice o Siigo se requiere, como mínimo:
 
 Si falta alguno de estos insumos, el adaptador **no se construye**: se documenta como pendiente en la tabla de abajo y se prioriza otra fase del roadmap mientras se consigue la información.
 
+## Estado del motor (Fase 12)
+
+El motor (`backend/src/transformation-engine/`) y la interfaz de adaptador ya están implementados: `registry.js` (registro de adaptadores por `sistemas_destino.codigo`, vacío hasta que la Fase 13/14 agregue el primero) y `engine.js`, con dos funciones:
+
+- `resolverPrerequisitosExportacion({ empresaId, usuarioId, sistemaDestinoCodigo, documentoIds })` — paso 6 de `data-flow.md`: carga los documentos (`APROBADO`/`LISTO_PARA_EXPORTAR`) y el mapeo de la empresa para ese destino, llama `adaptador.validarPrerequisitos`, y pasa a `LISTO_PARA_EXPORTAR` (con auditoría) los que no tienen errores; el resto queda en `APROBADO` y se reporta agrupado por documento.
+- `transformarParaExportar({ empresaId, sistemaDestinoCodigo, documentoIds })` — exige que los documentos ya estén `LISTO_PARA_EXPORTAR`, llama `adaptador.transformar` y devuelve los registros en memoria, sin generar archivo ni persistir (eso es `export-engine`, Fase 13).
+
+Si el `sistemas_destino.codigo` no tiene adaptador registrado, ambas funciones fallan con 501 — hoy eso pasa para los 4 destinos sembrados (WORDOFFICE/SIIGO/EXCEL/CSV), porque ningún adaptador concreto existe todavía. Verificado de punta a punta contra PostgreSQL real con un adaptador de prueba (no commiteado): documento con mapeo completo → `LISTO_PARA_EXPORTAR` → `transformar` produce el registro esperado; documento con una referencia sin mapear → se queda en `APROBADO` y se reporta como pendiente; `transformarParaExportar` rechaza (409) un documento que no llegó a `LISTO_PARA_EXPORTAR`; sistema destino sin adaptador → 501.
+
+No hay endpoint ni UI todavía — el motor no se expone hasta que Fase 13 lo invoque desde `/api/exportaciones`.
+
 ## Estado de los conectores (a la fecha de este documento)
 
 | Sistema | Documentación oficial | Plantilla oficial | Archivo de ejemplo real | Estado |
