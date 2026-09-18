@@ -24,7 +24,7 @@ export const MODULOS = [
   { path: '/documentos', label: 'Documentos', icon: FileStack, implementado: true },
   { path: '/compras', label: 'Compras', icon: ShoppingCart, implementado: true },
   { path: '/ventas', label: 'Ventas', icon: Receipt, implementado: true },
-  { path: '/terceros', label: 'Terceros', icon: Users, fase: 10 },
+  { path: '/terceros', label: 'Terceros', icon: Users, implementado: true },
   { path: '/bancos', label: 'Bancos', icon: Landmark, fase: 15 },
   { path: '/cartera', label: 'Cartera', icon: Wallet, fase: 15 },
   { path: '/cuentas-por-pagar', label: 'Cuentas por pagar', icon: CreditCard, fase: 15 },

@@ -31,10 +31,14 @@ Nota: el token de acceso lleva embebida la lista de empresas/roles del usuario (
 
 ## Terceros
 ```
-GET    /api/terceros?tipo=&q=&page=
-POST   /api/terceros
+GET    /api/terceros?tipo=&q=&page=     (q busca por razón social o identificación, insensible a mayúsculas)
+POST   /api/terceros                    (ADMINISTRADOR/AUXILIAR_CONTABLE/CONTADOR; si tipoIdentificacion=NIT y
+                                          no se envía dv, se calcula con el algoritmo DIAN; si se envía y no
+                                          coincide con el calculado, 400)
 GET    /api/terceros/:id
-PATCH  /api/terceros/:id
+PATCH  /api/terceros/:id                (mismos roles; no permite cambiar tipoIdentificacion/identificacion —
+                                          si estaban mal, desactivar y crear uno nuevo, para no reatribuir en
+                                          silencio los documentos históricos que ya apuntan a este id)
 ```
 
 ## Centro de carga

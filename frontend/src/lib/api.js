@@ -20,6 +20,13 @@ export function mensajeDeError(err, fallback) {
   return err?.message || fallback
 }
 
+// Arma un query string omitiendo valores undefined/vacíos (filtros sin usar).
+function queryDesde(params) {
+  const limpios = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''))
+  const query = new URLSearchParams(limpios).toString()
+  return query ? `?${query}` : ''
+}
+
 let refrescando = null
 
 async function refrescarTokenSilencioso() {
@@ -166,19 +173,16 @@ export const api = {
     return this.abrirArchivo(`/api/documentos/${documentoId}/archivo-original`)
   },
 
-  listarDocumentos: (params = {}) => {
-    const limpios = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''))
-    const query = new URLSearchParams(limpios).toString()
-    return request(`/api/documentos${query ? `?${query}` : ''}`)
-  },
+  listarDocumentos: (params = {}) => request(`/api/documentos${queryDesde(params)}`),
   obtenerDocumento: (id) => request(`/api/documentos/${id}`),
   actualizarDocumento: (id, datos) => request(`/api/documentos/${id}`, { method: 'PATCH', body: datos }),
   revalidarDocumento: (id) => request(`/api/documentos/${id}/revalidar`, { method: 'POST' }),
   aprobarDocumento: (id) => request(`/api/documentos/${id}/aprobar`, { method: 'POST' }),
   rechazarDocumento: (id, motivo) => request(`/api/documentos/${id}/rechazar`, { method: 'POST', body: { motivo } }),
-  obtenerResumenDocumentos: (params = {}) => {
-    const limpios = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== ''))
-    const query = new URLSearchParams(limpios).toString()
-    return request(`/api/documentos/resumen${query ? `?${query}` : ''}`)
-  },
+  obtenerResumenDocumentos: (params = {}) => request(`/api/documentos/resumen${queryDesde(params)}`),
+
+  listarTerceros: (params = {}) => request(`/api/terceros${queryDesde(params)}`),
+  obtenerTercero: (id) => request(`/api/terceros/${id}`),
+  crearTercero: (datos) => request('/api/terceros', { method: 'POST', body: datos }),
+  actualizarTercero: (id, datos) => request(`/api/terceros/${id}`, { method: 'PATCH', body: datos }),
 }

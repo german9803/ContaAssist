@@ -13,7 +13,7 @@ Cada fase deja una base funcional para la siguiente. No se avanza a la siguiente
 | 7 | Documentos y procesamiento (parsers, modelo interno) | **Completa** — probada de punta a punta contra PostgreSQL local y confirmada por el usuario en navegador |
 | 8 | Motor de validaciones | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 9 | Compras y ventas (módulos de negocio sobre `documentos`) | **Completa** — probada de punta a punta contra PostgreSQL local |
-| 10 | Terceros | Pendiente |
+| 10 | Terceros | **Completa** — probada de punta a punta contra PostgreSQL local |
 | 11 | Mapeo de datos | Pendiente |
 | 12 | Motor de transformación (interfaz de adaptador) | Pendiente |
 | 13 | Motor de exportación (adaptadores Excel/CSV, sin bloqueos externos) | Pendiente |
@@ -110,6 +110,16 @@ Backend:
 **Bug real encontrado y corregido antes de construir Ventas:** `buscarOCrearTercero` clasificaba todo tercero nuevo como `PROVEEDOR` sin importar el contexto — una factura de venta habría creado "clientes" marcados como proveedores. Se corrigió: el tipo de tercero ahora se deriva del `tipoDocumento` (`FACTURA_COMPRA` → `PROVEEDOR`, `FACTURA_VENTA` → `CLIENTE`), y si el mismo NIT vuelve a aparecer con un rol distinto (una empresa que nos compra y nos vende) se reclasifica a `AMBOS` en vez de perder la clasificación original. Verificado con un NIT real subido primero como compra y luego como venta → quedó `AMBOS`.
 
 Probado de punta a punta contra PostgreSQL real: resumen por tipo+estado con cifras correctas, filtro por tercero (parcial, case-insensitive) devolviendo documentos de compra y venta del mismo tercero, filtro por rango de fechas exacto, y combinación tipoDocumento+estado.
+
+## Nota sobre Fase 10
+
+Módulo completo `backend/src/modules/terceros/` (la tabla `terceros` ya existía desde Fase 7, creada mínimamente para que `documentos.tercero_id` pudiera resolverse — Fase 10 le da API/UI propia): listar con búsqueda (`q` por razón social o identificación) y filtro por `tipoTercero`, crear, editar. Reutiliza el algoritmo de dígito de verificación de NIT construido en Fase 8 (`validation-engine/nit.js`): si se crea un tercero NIT sin `dv`, se calcula solo; si se envía uno que no coincide con el calculado, se rechaza con 400 — un typo se atrapa al crear el tercero, no después sobre un documento.
+
+Decisión de diseño: `PATCH` no permite cambiar `tipoIdentificacion`/`identificacion` — cambiar la identificación de un tercero existente reatribuiría en silencio todo su historial de documentos. Si la identificación quedó mal, se desactiva ese registro (`activo:false`) y se crea uno nuevo.
+
+**Bug real corregido en Fase 9** (clasificación de terceros como `PROVEEDOR` sin importar el contexto) ya deja `buscarOCrearTercero` clasificando correctamente por tipo de documento; Fase 10 no tuvo que tocar esa lógica, solo construir la gestión manual encima.
+
+Probado de punta a punta contra PostgreSQL real: NIT real (Bancolombia 890903938) con DV autocalculado en 8, DV incorrecto rechazado (400), identificación duplicada rechazada (409), cédula sin DV, búsqueda parcial, filtro por tipo, edición de campos editables, intento de cambiar la identificación (ignorado), desactivación, permisos (`CONSULTA` no crea — 403, sí lista), y auditoría de `CREAR_TERCERO`/`MODIFICAR_TERCERO`.
 
 ## Información que el usuario debe aportar antes de Fase 14
 
