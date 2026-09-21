@@ -7,6 +7,10 @@ import {
   postMapeoFormaPago,
   getMapeoTerceros,
   postMapeoTercero,
+  getMapeoBodegas,
+  postMapeoBodega,
+  getMapeoProductos,
+  postMapeoProducto,
 } from './mapeo.controller.js'
 
 export const mapeoRouter = Router()
@@ -21,3 +25,7 @@ mapeoRouter.get('/terceros', getMapeoTerceros)
 mapeoRouter.post('/terceros', PUEDE_EDITAR, postMapeoTercero)
 mapeoRouter.get('/formas-pago', getMapeoFormasPago)
 mapeoRouter.post('/formas-pago', PUEDE_EDITAR, postMapeoFormaPago)
+mapeoRouter.get('/bodegas', getMapeoBodegas)
+mapeoRouter.post('/bodegas', PUEDE_EDITAR, postMapeoBodega)
+mapeoRouter.get('/productos', getMapeoProductos)
+mapeoRouter.post('/productos', PUEDE_EDITAR, postMapeoProducto)

@@ -9,6 +9,14 @@ function FilaMapeo({ codigo, nombre, codigoDestino, disabled, onGuardar }) {
   const [valor, setValor] = useState(codigoDestino || '')
   const [guardando, setGuardando] = useState(false)
 
+  // Sin esto, cambiar de sistema destino deja el input mostrando el valor del
+  // sistema anterior: la fila se re-renderiza con el mismo `key` (mismo
+  // cuentaContableId/bodegaId/...) antes y después de que llegue el nuevo
+  // mapeo, así que React nunca reinicializa el useState de arriba por sí solo.
+  useEffect(() => {
+    setValor(codigoDestino || '')
+  }, [codigoDestino])
+
   async function guardar() {
     setGuardando(true)
     try {
@@ -46,10 +54,14 @@ export function MapeoPage() {
   const [cuentas, setCuentas] = useState(null)
   const [formasPago, setFormasPago] = useState(null)
   const [terceros, setTerceros] = useState(null)
+  const [bodegas, setBodegas] = useState(null)
+  const [productos, setProductos] = useState(null)
   const [error, setError] = useState(null)
 
   const [buscarTercero, setBuscarTercero] = useState('')
   const [resultadosTercero, setResultadosTercero] = useState([])
+  const [buscarProducto, setBuscarProducto] = useState('')
+  const [resultadosProducto, setResultadosProducto] = useState([])
 
   useEffect(() => {
     api.listarSistemasDestino().then((res) => {
@@ -64,6 +76,8 @@ export function MapeoPage() {
     api.listarMapeoCuentas(sistemaDestino).then(setCuentas).catch(() => setError('No se pudo cargar el mapeo de cuentas'))
     api.listarMapeoFormasPago(sistemaDestino).then(setFormasPago).catch(() => setError('No se pudo cargar el mapeo de formas de pago'))
     api.listarMapeoTerceros(sistemaDestino).then(setTerceros).catch(() => setError('No se pudo cargar el mapeo de terceros'))
+    api.listarMapeoBodegas(sistemaDestino).then(setBodegas).catch(() => setError('No se pudo cargar el mapeo de bodegas'))
+    api.listarMapeoProductos(sistemaDestino).then(setProductos).catch(() => setError('No se pudo cargar el mapeo de productos'))
   }
 
   useEffect(cargar, [empresaId, sistemaDestino])
@@ -80,6 +94,24 @@ export function MapeoPage() {
       await api.guardarMapeoTercero({ sistemaDestino, terceroId: tercero.id, codigoDestino })
       setResultadosTercero([])
       setBuscarTercero('')
+      cargar()
+    } catch (err) {
+      setError(mensajeDeError(err, 'No se pudo guardar el mapeo'))
+    }
+  }
+
+  async function buscarProductos() {
+    if (!buscarProducto.trim()) return
+    const res = await api.listarProductos({ q: buscarProducto })
+    setResultadosProducto(res.slice(0, 5))
+  }
+
+  async function mapearProducto(producto, codigoDestino) {
+    if (!codigoDestino?.trim()) return
+    try {
+      await api.guardarMapeoProducto({ sistemaDestino, productoId: producto.id, codigoDestino })
+      setResultadosProducto([])
+      setBuscarProducto('')
       cargar()
     } catch (err) {
       setError(mensajeDeError(err, 'No se pudo guardar el mapeo'))
@@ -157,6 +189,80 @@ export function MapeoPage() {
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-600">Bodegas</h2>
+        {bodegas === null ? (
+          <p className="text-sm text-slate-400">Cargando…</p>
+        ) : bodegas.length === 0 ? (
+          <p className="text-sm text-slate-400">No hay bodegas creadas (Inventario).</p>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <tbody>
+              {bodegas.map((b) => (
+                <FilaMapeo
+                  key={b.bodegaId}
+                  codigo={b.codigo}
+                  nombre={b.nombre}
+                  codigoDestino={b.codigoDestino}
+                  disabled={!puedeEditar}
+                  onGuardar={(codigoDestino) => api.guardarMapeoBodega({ sistemaDestino, bodegaId: b.bodegaId, codigoDestino }).then(cargar)}
+                />
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-600">Productos</h2>
+
+        {productos === null ? (
+          <p className="text-sm text-slate-400">Cargando…</p>
+        ) : productos.length === 0 ? (
+          <p className="mb-4 text-sm text-slate-400">Todavía no hay productos mapeados para este sistema.</p>
+        ) : (
+          <table className="mb-4 w-full text-left text-sm">
+            <tbody>
+              {productos.map((p) => (
+                <FilaMapeo
+                  key={p.productoId}
+                  codigo={p.codigo || '(sin código)'}
+                  nombre={p.nombre}
+                  codigoDestino={p.codigoDestino}
+                  disabled={!puedeEditar}
+                  onGuardar={(codigoDestino) =>
+                    api.guardarMapeoProducto({ sistemaDestino, productoId: p.productoId, codigoDestino }).then(cargar)
+                  }
+                />
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {puedeEditar && (
+          <div>
+            <div className="flex gap-2">
+              <input
+                placeholder="Buscar producto por nombre o código"
+                value={buscarProducto}
+                onChange={(e) => setBuscarProducto(e.target.value)}
+                className={`${CAMPO} w-64`}
+              />
+              <button type="button" onClick={buscarProductos} className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-200">
+                Buscar
+              </button>
+            </div>
+            {resultadosProducto.length > 0 && (
+              <ul className="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200">
+                {resultadosProducto.map((p) => (
+                  <FilaBusquedaProducto key={p.id} producto={p} onMapear={mapearProducto} />
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-600">Terceros</h2>
 
         {terceros === null ? (
@@ -204,6 +310,32 @@ export function MapeoPage() {
         )}
       </section>
     </div>
+  )
+}
+
+function FilaBusquedaProducto({ producto, onMapear }) {
+  const [codigoDestino, setCodigoDestino] = useState('')
+  return (
+    <li className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+      <span className="text-slate-600">
+        {producto.codigo || '(sin código)'} — {producto.nombre}
+      </span>
+      <span className="flex items-center gap-2">
+        <input
+          placeholder="Código destino"
+          value={codigoDestino}
+          onChange={(e) => setCodigoDestino(e.target.value)}
+          className={`${CAMPO} w-32`}
+        />
+        <button
+          type="button"
+          onClick={() => onMapear(producto, codigoDestino)}
+          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+        >
+          Mapear
+        </button>
+      </span>
+    </li>
   )
 }
 

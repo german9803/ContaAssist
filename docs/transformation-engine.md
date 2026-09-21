@@ -15,8 +15,12 @@ interface AccountingSystemAdapter {
   transformar(documentos, mapeos): RegistroDestino[];
      // documento interno + mapeos → estructura propia del destino
 
-  generarArchivo(registros: RegistroDestino[]): Buffer;
+  generarArchivo(registros: RegistroDestino[], parametros?: object): Buffer;
      // aplica el formato físico exacto (columnas, orden, encabezados, encoding)
+     // `parametros` (Fase 14): constantes de exportación que el adaptador
+     // necesita pero que no viven en ningún documento (ej. WordOffice exige
+     // un "tercero interno" fijo por lote) — export-engine las recibe del
+     // usuario al generar y las pasa tal cual, EXCEL/CSV las ignoran.
 }
 ```
 
@@ -62,15 +66,23 @@ El motor (`backend/src/transformation-engine/`) y la interfaz de adaptador ya es
 
 Si el `sistemas_destino.codigo` no tiene adaptador registrado, ambas funciones fallan con 501 — hoy eso pasa para los 4 destinos sembrados (WORDOFFICE/SIIGO/EXCEL/CSV), porque ningún adaptador concreto existe todavía. Verificado de punta a punta contra PostgreSQL real con un adaptador de prueba (no commiteado): documento con mapeo completo → `LISTO_PARA_EXPORTAR` → `transformar` produce el registro esperado; documento con una referencia sin mapear → se queda en `APROBADO` y se reporta como pendiente; `transformarParaExportar` rechaza (409) un documento que no llegó a `LISTO_PARA_EXPORTAR`; sistema destino sin adaptador → 501.
 
-No hay endpoint ni UI todavía — el motor no se expone hasta que Fase 13 lo invoque desde `/api/exportaciones`.
+Fase 13 conectó el motor a `/api/exportaciones` vía `backend/src/export-engine/exportEngine.js`, con los dos primeros adaptadores reales registrados (`EXCEL`, `CSV` — ver nota de Fase 13 en `roadmap.md`). Fase 14 agregó el adaptador real de WordOffice (compras y ventas) — ver `backend/src/adapters/wordoffice/README.md` para la fuente oficial exacta y los supuestos documentados.
 
 ## Estado de los conectores (a la fecha de este documento)
 
 | Sistema | Documentación oficial | Plantilla oficial | Archivo de ejemplo real | Estado |
 |---|---|---|---|---|
-| WordOffice | ⚠ Pendiente de aportar | ⚠ Pendiente | ⚠ Pendiente | **Bloqueado** — no iniciar Fase 14 sin estos insumos |
-| Siigo | ⚠ Pendiente de aportar | ⚠ Pendiente | ⚠ Pendiente | **Bloqueado** |
-| Excel | No aplica (formato propio) | Se define en Fase 13 | No aplica | Disponible para implementar sin bloqueos externos |
-| CSV | No aplica (formato propio, delimitado) | Se define en Fase 13 | No aplica | Disponible para implementar sin bloqueos externos |
+| WordOffice | No aplica (formato de import por Excel, sin manual escrito aportado) | `backend/src/adapters/wordoffice/mapper.js` (columnas extraídas del archivo real) | 5 archivos reales del usuario (ver README del adaptador) | **Implementado** (Fase 14) para `FACTURA_COMPRA`/`FACTURA_VENTA`. Nota crédito de compra (`DMC`) y tesorería (`CE`/`RC`, Bancos/Cartera) quedan fuera de alcance |
+| Siigo | ⚠ Pendiente de aportar | ⚠ Pendiente | ⚠ Pendiente | **Bloqueado** — no se ha aportado ningún insumo propio de Siigo |
+| Excel | No aplica (formato propio) | `backend/src/adapters/formatoContaAssist.js` | No aplica | **Implementado** (Fase 13) |
+| CSV | No aplica (formato propio, delimitado) | `backend/src/adapters/formatoContaAssist.js` | No aplica | **Implementado** (Fase 13) |
 
-**Acción requerida del usuario antes de la Fase 14:** aportar para WordOffice y para Siigo, cada uno por separado: manual/documentación oficial de importación, plantilla de importación vigente, y al menos un archivo de ejemplo real ya cargado exitosamente al sistema. Sin esto, esas fases se posponen sin bloquear el resto del roadmap (Excel/CSV sí pueden avanzar).
+**Acción requerida del usuario antes de continuar con Siigo:** aportar manual/documentación oficial de importación, plantilla vigente, y al menos un archivo de ejemplo real ya cargado exitosamente al sistema. Sin esto, ese adaptador se pospone sin bloquear el resto del roadmap.
+
+## Nota sobre Fase 14 (adaptador WordOffice)
+
+WordOffice resuelve la cuenta contable de cada línea de compra/venta a partir del **producto**, no de un asiento de cabecera: su interfaz de importación es un movimiento de inventario por línea (producto+bodega+cantidad+valor unitario). El modelo de `Documento` hasta Fase 13 era solo de cabecera, así que esta fase tuvo que implementar primero la base de inventario que `docs/database.md` ya documentaba desde Fase 1 pero nunca se había construido: `Producto`, `Bodega`, `DocumentoDetalle`, `MapeoProducto`, `MapeoBodega`.
+
+Fuentes de datos de línea disponibles hoy: el parser de XML (factura electrónica DIAN) extrae `cac:InvoiceLine` automáticamente; la plantilla propia de ContaAssist (CSV/XLSX) acepta columnas de línea opcionales (`producto_codigo`, `producto_descripcion`, `cantidad`, `valor_unitario`, `porcentaje_iva_linea`, `descuento`, `bodega_codigo`) y agrupa varias filas del mismo documento en líneas. PDF/imágenes/XLS siguen sin extracción de línea (gap documentado, igual que en Fase 7); un documento sin líneas simplemente no puede exportarse a WordOffice hasta que se le asignen manualmente desde `DocumentoDetallePage`.
+
+`parametrosAdaptador` (nuevo, Fase 14): WordOffice exige `terceroInterno` (código de usuario/serie interna de WordOffice, constante por lote — no se deriva de ningún documento) y acepta opcionalmente `notaLinea`/`centroCostosTexto`. Se piden en el formulario de exportación y se validan en `export-engine`, no en el motor de transformación.

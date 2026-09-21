@@ -12,11 +12,13 @@ export class TransformacionError extends Error {
 }
 
 const INCLUYE_DOCUMENTO = {
+  empresa: true,
   tercero: true,
   cuentaContable: true,
   centroCosto: true,
   formaPago: true,
   impuestos: { include: { impuesto: true } },
+  detalles: { include: { producto: true, bodega: true, cuentaContable: true, centroCosto: true } },
 }
 
 async function resolverAdaptador(sistemaDestinoCodigo) {
@@ -31,16 +33,23 @@ async function resolverAdaptador(sistemaDestinoCodigo) {
   return { sistemaDestino, adaptador }
 }
 
+// `productos`/`bodegas` (Fase 14) solo los usa el adaptador WordOffice —
+// EXCEL/CSV los ignoran, pero cargarlos siempre evita que engine.js necesite
+// saber qué adaptador los necesita (esa es la interfaz común del adaptador).
 async function cargarMapeos(empresaId, sistemaDestinoId) {
-  const [cuentas, terceros, formasPago] = await Promise.all([
+  const [cuentas, terceros, formasPago, productos, bodegas] = await Promise.all([
     prisma.mapeoCuenta.findMany({ where: { empresaId, sistemaDestinoId } }),
     prisma.mapeoTercero.findMany({ where: { empresaId, sistemaDestinoId } }),
     prisma.mapeoFormaPago.findMany({ where: { empresaId, sistemaDestinoId } }),
+    prisma.mapeoProducto.findMany({ where: { empresaId, sistemaDestinoId } }),
+    prisma.mapeoBodega.findMany({ where: { empresaId, sistemaDestinoId } }),
   ])
   return {
     cuentas: new Map(cuentas.map((m) => [m.cuentaContableId, m.codigoDestino])),
     terceros: new Map(terceros.map((m) => [m.terceroId, m.codigoDestino])),
     formasPago: new Map(formasPago.map((m) => [m.formaPagoId, m.codigoDestino])),
+    productos: new Map(productos.map((m) => [m.productoId, m.codigoDestino])),
+    bodegas: new Map(bodegas.map((m) => [m.bodegaId, m.codigoDestino])),
   }
 }
 

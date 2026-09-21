@@ -34,6 +34,52 @@ test('interpretarFilas reporta errores por campos faltantes sin descartar otras 
   assert.equal(filas[1].valido, true)
 })
 
+// Fase 14: columnas de línea opcionales. Varias filas con el mismo
+// tipo+numero+nit se agrupan en un solo documento con varias líneas.
+test('interpretarFilas agrupa varias filas del mismo documento en líneas', () => {
+  const base = {
+    tipo_documento: 'FACTURA_COMPRA',
+    numero_documento: 'FC-500',
+    fecha_emision: '2026-09-01',
+    nit_tercero: '900123456',
+    razon_social_tercero: 'Proveedor Demo SAS',
+    subtotal: '150000',
+    total: '150000',
+  }
+  const [documento] = interpretarFilas([
+    { ...base, producto_descripcion: 'Lomo', cantidad: '10', valor_unitario: '5000' },
+    { ...base, producto_descripcion: 'Costilla', cantidad: '2', valor_unitario: '50000' },
+  ])
+  assert.equal(documento.valido, true)
+  assert.equal(documento.lineas.length, 2)
+  assert.equal(documento.lineas[0].descripcion, 'Lomo')
+  assert.equal(documento.lineas[0].subtotalLinea, 50000)
+  assert.equal(documento.lineas[1].descripcion, 'Costilla')
+})
+
+test('interpretarFilas no agrupa filas sin numero_documento (evita mezclar filas inválidas)', () => {
+  const documentos = interpretarFilas([
+    { tipo_documento: 'FACTURA_COMPRA', numero_documento: '', nit_tercero: '1' },
+    { tipo_documento: 'FACTURA_COMPRA', numero_documento: '', nit_tercero: '1' },
+  ])
+  assert.equal(documentos.length, 2)
+})
+
+test('interpretarFilas sin columnas de línea se comporta igual que antes (sin lineas)', () => {
+  const [documento] = interpretarFilas([
+    {
+      tipo_documento: 'FACTURA_COMPRA',
+      numero_documento: 'FC-501',
+      fecha_emision: '2026-09-01',
+      nit_tercero: '1',
+      razon_social_tercero: 'X',
+      subtotal: '1',
+      total: '1',
+    },
+  ])
+  assert.deepEqual(documento.lineas, [])
+})
+
 test('interpretarFilas rechaza un porcentaje de IVA no reconocido', () => {
   const [fila] = interpretarFilas([
     { tipo_documento: 'FACTURA_COMPRA', numero_documento: 'FC-003', fecha_emision: '2026-09-01', nit_tercero: '1', razon_social_tercero: 'X', subtotal: '100', iva: '7', porcentaje_iva: '7', total: '107' },
@@ -122,4 +168,45 @@ test('parsearCsv nunca lanza: incluso contenido totalmente irrecuperable', () =>
   const filas = parsearCsv(Buffer.from('"campo sin cerrar\ny más basura', 'utf-8'))
   assert.equal(Array.isArray(filas), true)
   assert.equal(filas[0].valido, false)
+})
+
+// Fase 14: cac:InvoiceLine — el detalle es opcional para el resto del
+// sistema, así que el XML sigue siendo válido con o sin líneas.
+const XML_CON_LINEAS = XML_FACTURA_DEMO.replace(
+  '</Invoice>',
+  `<cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="KGM">10</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount>50000</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Lomo de cerdo</cbc:Description>
+      <cac:SellersItemIdentification><cbc:ID>PROD-001</cbc:ID></cac:SellersItemIdentification>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount>5000</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>2</cbc:ID>
+    <cbc:InvoicedQuantity>1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount>50000</cbc:LineExtensionAmount>
+    <cac:Item><cbc:Description>Costilla de cerdo</cbc:Description></cac:Item>
+    <cac:Price><cbc:PriceAmount>50000</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+</Invoice>`,
+)
+
+test('parsearXmlFactura extrae las líneas (cac:InvoiceLine) cuando el XML las trae', () => {
+  const resultado = parsearXmlFactura(Buffer.from(XML_CON_LINEAS, 'utf-8'))
+  assert.equal(resultado.valido, true)
+  assert.equal(resultado.lineas.length, 2)
+  assert.equal(resultado.lineas[0].descripcion, 'Lomo de cerdo')
+  assert.equal(resultado.lineas[0].codigoProducto, 'PROD-001')
+  assert.equal(resultado.lineas[0].unidadMedida, 'KGM')
+  assert.equal(resultado.lineas[0].cantidad, 10)
+  assert.equal(resultado.lineas[0].valorUnitario, 5000)
+  assert.equal(resultado.lineas[1].codigoProducto, null)
+})
+
+test('parsearXmlFactura devuelve lineas: [] cuando el XML no trae InvoiceLine', () => {
+  const resultado = parsearXmlFactura(Buffer.from(XML_FACTURA_DEMO, 'utf-8'))
+  assert.deepEqual(resultado.lineas, [])
 })

@@ -125,8 +125,32 @@ function subirCarga({ tipoOrigen, archivos, onProgress }) {
   })
 }
 
+// Sube el archivo de extracto (CSV/XLSX, plantilla propia de ContaAssist) —
+// mismo criterio de headers que subirCarga, sin progreso porque un extracto
+// es un archivo chico (no requiere feedback de avance).
+async function subirExtracto(cuentaId, archivo) {
+  const formData = new FormData()
+  formData.append('archivo', archivo)
+
+  const token = localStorage.getItem(STORAGE_KEYS.accessToken)
+  const empresaId = localStorage.getItem(STORAGE_KEYS.empresaId)
+  const res = await fetch(`${API_URL}/api/bancos/cuentas/${cuentaId}/extractos`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(empresaId ? { 'X-Empresa-Id': empresaId } : {}),
+    },
+    body: formData,
+  })
+  const tieneJson = res.headers.get('content-type')?.includes('application/json')
+  const data = tieneJson ? await res.json().catch(() => null) : null
+  if (!res.ok) throw new ApiError(data?.error || `Error ${res.status}`, res.status, data)
+  return data
+}
+
 export const api = {
   subirCarga,
+  subirExtracto,
 
   registro: (datos) => request('/api/auth/registro', { method: 'POST', body: datos, sinAuth: true, sinEmpresa: true }),
   login: (datos) => request('/api/auth/login', { method: 'POST', body: datos, sinAuth: true, sinEmpresa: true }),
@@ -200,4 +224,39 @@ export const api = {
   guardarMapeoFormaPago: (datos) => request('/api/mapeos/formas-pago', { method: 'POST', body: datos }),
   listarMapeoTerceros: (sistemaDestino) => request(`/api/mapeos/terceros${queryDesde({ sistemaDestino })}`),
   guardarMapeoTercero: (datos) => request('/api/mapeos/terceros', { method: 'POST', body: datos }),
+  listarMapeoBodegas: (sistemaDestino) => request(`/api/mapeos/bodegas${queryDesde({ sistemaDestino })}`),
+  guardarMapeoBodega: (datos) => request('/api/mapeos/bodegas', { method: 'POST', body: datos }),
+  listarMapeoProductos: (sistemaDestino) => request(`/api/mapeos/productos${queryDesde({ sistemaDestino })}`),
+  guardarMapeoProducto: (datos) => request('/api/mapeos/productos', { method: 'POST', body: datos }),
+
+  listarProductos: (params = {}) => request(`/api/inventario/productos${queryDesde(params)}`),
+  crearProducto: (datos) => request('/api/inventario/productos', { method: 'POST', body: datos }),
+  listarBodegas: () => request('/api/inventario/bodegas'),
+  crearBodega: (datos) => request('/api/inventario/bodegas', { method: 'POST', body: datos }),
+
+  actualizarDetalleDocumento: (documentoId, detalleId, datos) =>
+    request(`/api/documentos/${documentoId}/detalles/${detalleId}`, { method: 'PATCH', body: datos }),
+
+  previsualizarExportacion: (datos) => request('/api/exportaciones/preview', { method: 'POST', body: datos }),
+  crearExportacion: (datos) => request('/api/exportaciones', { method: 'POST', body: datos }),
+  listarExportaciones: (params = {}) => request(`/api/exportaciones${queryDesde(params)}`),
+  obtenerExportacion: (id) => request(`/api/exportaciones/${id}`),
+  async abrirArchivoExportacion(id) {
+    return this.abrirArchivo(`/api/exportaciones/${id}/descargar`)
+  },
+
+  listarDocumentosConSaldo: (params = {}) => request(`/api/pagos/documentos${queryDesde(params)}`),
+  obtenerResumenCartera: (params = {}) => request(`/api/pagos/resumen${queryDesde(params)}`),
+  registrarPago: (datos) => request('/api/pagos', { method: 'POST', body: datos }),
+  listarPagos: (params = {}) => request(`/api/pagos${queryDesde(params)}`),
+  obtenerPago: (id) => request(`/api/pagos/${id}`),
+  anularPago: (id) => request(`/api/pagos/${id}/anular`, { method: 'POST' }),
+
+  listarCuentasBancarias: () => request('/api/bancos/cuentas'),
+  crearCuentaBancaria: (datos) => request('/api/bancos/cuentas', { method: 'POST', body: datos }),
+  listarExtractosDeCuenta: (cuentaId) => request(`/api/bancos/cuentas/${cuentaId}/extractos`),
+  obtenerExtracto: (id) => request(`/api/bancos/extractos/${id}`),
+  conciliarLinea: (lineaId, pagoId) =>
+    request(`/api/bancos/extractos/lineas/${lineaId}/conciliar`, { method: 'POST', body: { pagoId } }),
+  desconciliarLinea: (lineaId) => request(`/api/bancos/extractos/lineas/${lineaId}/desconciliar`, { method: 'POST' }),
 }

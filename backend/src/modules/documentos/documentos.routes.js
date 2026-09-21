@@ -5,6 +5,7 @@ import {
   getResumen,
   getDocumento,
   patchDocumento,
+  patchDetalle,
   postRevalidar,
   postAprobar,
   postRechazar,
@@ -25,6 +26,7 @@ documentosRouter.get('/resumen', getResumen) // antes de /:id — si no, Express
 documentosRouter.get('/:id', getDocumento)
 documentosRouter.get('/:id/archivo-original', getArchivoOriginal)
 documentosRouter.patch('/:id', PUEDE_EDITAR, patchDocumento)
+documentosRouter.patch('/:id/detalles/:detalleId', PUEDE_EDITAR, patchDetalle)
 documentosRouter.post('/:id/revalidar', PUEDE_EDITAR, postRevalidar)
 documentosRouter.post('/:id/aprobar', PUEDE_APROBAR, postAprobar)
 documentosRouter.post('/:id/rechazar', PUEDE_APROBAR, postRechazar)

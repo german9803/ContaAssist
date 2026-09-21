@@ -146,4 +146,92 @@ export async function upsertMapeoTercero({ empresaId, usuarioId, sistemaDestinoC
   return { terceroId, identificacion: tercero.identificacion, razonSocial: tercero.razonSocial, codigoDestino }
 }
 
+// ── Bodegas: catálogo chico — se listan TODAS las de la empresa con su
+// equivalencia (null si aún no se mapeó), igual que cuentas/formas de pago.
+
+export async function listarMapeoBodegas({ empresaId, sistemaDestinoCodigo }) {
+  const sistema = await resolverSistemaDestino(sistemaDestinoCodigo)
+  const [bodegas, mapeos] = await Promise.all([
+    prisma.bodega.findMany({ where: { empresaId }, orderBy: { codigo: 'asc' } }),
+    prisma.mapeoBodega.findMany({ where: { empresaId, sistemaDestinoId: sistema.id } }),
+  ])
+  const porBodega = new Map(mapeos.map((m) => [m.bodegaId, m.codigoDestino]))
+  return bodegas.map((b) => ({
+    bodegaId: b.id,
+    codigo: b.codigo,
+    nombre: b.nombre,
+    codigoDestino: porBodega.get(b.id) ?? null,
+  }))
+}
+
+export async function upsertMapeoBodega({ empresaId, usuarioId, sistemaDestinoCodigo, bodegaId, codigoDestino }) {
+  const sistema = await resolverSistemaDestino(sistemaDestinoCodigo)
+  if (!codigoDestino?.trim()) throw new MapeoError('codigoDestino es requerido')
+
+  const bodega = await prisma.bodega.findFirst({ where: { id: bodegaId, empresaId } })
+  if (!bodega) throw new MapeoError('Bodega no encontrada', 404)
+
+  const mapeo = await prisma.mapeoBodega.upsert({
+    where: { empresaId_sistemaDestinoId_bodegaId: { empresaId, sistemaDestinoId: sistema.id, bodegaId } },
+    update: { codigoDestino },
+    create: { empresaId, sistemaDestinoId: sistema.id, bodegaId, codigoDestino },
+  })
+
+  await registrarAuditoria({
+    empresaId,
+    usuarioId,
+    accion: 'MAPEAR_BODEGA',
+    entidad: 'mapeo_bodega',
+    entidadId: mapeo.id,
+    campo: sistema.codigo,
+    valorNuevo: `${bodega.codigo} → ${codigoDestino}`,
+  })
+
+  return { bodegaId, codigo: bodega.codigo, nombre: bodega.nombre, codigoDestino }
+}
+
+// ── Productos: catálogo potencialmente grande — mismo patrón que terceros
+// (solo se listan los ya mapeados; uno nuevo se agrega por búsqueda+id).
+
+export async function listarMapeoProductos({ empresaId, sistemaDestinoCodigo }) {
+  const sistema = await resolverSistemaDestino(sistemaDestinoCodigo)
+  const mapeos = await prisma.mapeoProducto.findMany({
+    where: { empresaId, sistemaDestinoId: sistema.id },
+    include: { producto: true },
+    orderBy: { producto: { nombre: 'asc' } },
+  })
+  return mapeos.map((m) => ({
+    productoId: m.productoId,
+    codigo: m.producto.codigo,
+    nombre: m.producto.nombre,
+    codigoDestino: m.codigoDestino,
+  }))
+}
+
+export async function upsertMapeoProducto({ empresaId, usuarioId, sistemaDestinoCodigo, productoId, codigoDestino }) {
+  const sistema = await resolverSistemaDestino(sistemaDestinoCodigo)
+  if (!codigoDestino?.trim()) throw new MapeoError('codigoDestino es requerido')
+
+  const producto = await prisma.producto.findFirst({ where: { id: productoId, empresaId } })
+  if (!producto) throw new MapeoError('Producto no encontrado', 404)
+
+  const mapeo = await prisma.mapeoProducto.upsert({
+    where: { empresaId_sistemaDestinoId_productoId: { empresaId, sistemaDestinoId: sistema.id, productoId } },
+    update: { codigoDestino },
+    create: { empresaId, sistemaDestinoId: sistema.id, productoId, codigoDestino },
+  })
+
+  await registrarAuditoria({
+    empresaId,
+    usuarioId,
+    accion: 'MAPEAR_PRODUCTO',
+    entidad: 'mapeo_producto',
+    entidadId: mapeo.id,
+    campo: sistema.codigo,
+    valorNuevo: `${producto.codigo || producto.nombre} → ${codigoDestino}`,
+  })
+
+  return { productoId, codigo: producto.codigo, nombre: producto.nombre, codigoDestino }
+}
+
 export { MapeoError }

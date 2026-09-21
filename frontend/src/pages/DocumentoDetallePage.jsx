@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react'
+import { ArrowLeft, ExternalLink, RefreshCw, Save } from 'lucide-react'
 import { api, mensajeDeError } from '../lib/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { TIPOS_DOCUMENTO } from '../lib/tiposDocumento.js'
@@ -55,6 +55,8 @@ export function DocumentoDetallePage() {
   const [cuentas, setCuentas] = useState([])
   const [centros, setCentros] = useState([])
   const [formasPago, setFormasPago] = useState([])
+  const [productos, setProductos] = useState([])
+  const [bodegas, setBodegas] = useState([])
 
   const puedeAprobar = ROLES_QUE_APRUEBAN.includes(empresaActual?.rolCodigo)
   const esTerminal = ESTADOS_TERMINALES.includes(documento?.estado)
@@ -70,6 +72,8 @@ export function DocumentoDetallePage() {
     api.listarCuentasContables().then(setCuentas).catch(() => {})
     api.listarCentrosCosto().then(setCentros).catch(() => {})
     api.listarFormasPago().then(setFormasPago).catch(() => {})
+    api.listarProductos().then(setProductos).catch(() => {})
+    api.listarBodegas().then(setBodegas).catch(() => {})
   }, [id])
 
   function actualizarCampo(campo) {
@@ -313,7 +317,127 @@ export function DocumentoDetallePage() {
           </form>
         </section>
       </div>
+
+      {documento.detalles?.length > 0 && (
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="mb-1 text-sm font-semibold text-slate-600">Líneas de detalle</h2>
+          <p className="mb-3 text-xs text-slate-400">
+            Producto/bodega requeridos para exportar a WordOffice. Solo se pueden asignar productos que ya tengan código
+            (Inventario).
+          </p>
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 text-xs text-slate-400">
+                <th className="py-1.5 pr-3 font-medium">Descripción</th>
+                <th className="py-1.5 pr-3 font-medium">Cant. × Vr. unitario</th>
+                <th className="py-1.5 pr-2 font-medium">Producto</th>
+                <th className="py-1.5 pr-2 font-medium">Bodega</th>
+                <th className="py-1.5 pr-2 font-medium">Cuenta</th>
+                <th className="py-1.5 pr-2 font-medium">Centro costo</th>
+                <th className="py-1.5" />
+              </tr>
+            </thead>
+            <tbody>
+              {documento.detalles.map((detalle) => (
+                <FilaDetalle
+                  key={detalle.id}
+                  detalle={detalle}
+                  documentoId={documento.id}
+                  productos={productos.filter((p) => p.codigo)}
+                  bodegas={bodegas}
+                  cuentas={cuentas}
+                  centros={centros}
+                  disabled={!puedeAprobar}
+                  onGuardado={(doc) => {
+                    setDocumento(doc)
+                    setForm(aFormulario(doc))
+                  }}
+                />
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
     </div>
+  )
+}
+
+function FilaDetalle({ detalle, documentoId, productos, bodegas, cuentas, centros, disabled, onGuardado }) {
+  const [productoCodigo, setProductoCodigo] = useState(detalle.producto?.codigo || '')
+  const [bodegaCodigo, setBodegaCodigo] = useState(detalle.bodega?.codigo || '')
+  const [cuentaContableCodigo, setCuentaContableCodigo] = useState(detalle.cuentaContable?.codigo || '')
+  const [centroCostoCodigo, setCentroCostoCodigo] = useState(detalle.centroCosto?.codigo || '')
+  const [guardando, setGuardando] = useState(false)
+
+  async function guardar() {
+    setGuardando(true)
+    try {
+      const doc = await api.actualizarDetalleDocumento(documentoId, detalle.id, {
+        productoCodigo: productoCodigo || null,
+        bodegaCodigo: bodegaCodigo || null,
+        cuentaContableCodigo: cuentaContableCodigo || null,
+        centroCostoCodigo: centroCostoCodigo || null,
+      })
+      onGuardado(doc)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <tr className="border-b border-slate-50 last:border-0">
+      <td className="py-1.5 pr-3 text-slate-600">{detalle.descripcion}</td>
+      <td className="py-1.5 pr-3 text-slate-500">
+        {detalle.cantidad} × {detalle.valorUnitario}
+      </td>
+      <td className="py-1.5 pr-2">
+        <select value={productoCodigo} onChange={(e) => setProductoCodigo(e.target.value)} disabled={disabled} className={SELECT_SM}>
+          <option value="">— Sin asignar —</option>
+          {productos.map((p) => (
+            <option key={p.id} value={p.codigo}>
+              {p.codigo} — {p.nombre}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td className="py-1.5 pr-2">
+        <select value={bodegaCodigo} onChange={(e) => setBodegaCodigo(e.target.value)} disabled={disabled} className={SELECT_SM}>
+          <option value="">— Sin asignar —</option>
+          {bodegas.map((b) => (
+            <option key={b.id} value={b.codigo}>
+              {b.codigo} — {b.nombre}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td className="py-1.5 pr-2">
+        <select value={cuentaContableCodigo} onChange={(e) => setCuentaContableCodigo(e.target.value)} disabled={disabled} className={SELECT_SM}>
+          <option value="">— Sin asignar —</option>
+          {cuentas.map((c) => (
+            <option key={c.id} value={c.codigo}>
+              {c.codigo}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td className="py-1.5 pr-2">
+        <select value={centroCostoCodigo} onChange={(e) => setCentroCostoCodigo(e.target.value)} disabled={disabled} className={SELECT_SM}>
+          <option value="">— Sin asignar —</option>
+          {centros.map((c) => (
+            <option key={c.id} value={c.codigo}>
+              {c.codigo}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td className="py-1.5">
+        {!disabled && (
+          <button type="button" onClick={guardar} disabled={guardando} className="text-indigo-600 hover:text-indigo-500">
+            <Save size={16} />
+          </button>
+        )}
+      </td>
+    </tr>
   )
 }
 
@@ -327,6 +451,7 @@ function Campo({ label, className = '', children }) {
 }
 
 const SELECT = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100'
+const SELECT_SM = 'w-36 rounded-lg border border-slate-300 px-2 py-1 text-xs focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100'
 
 function Input(props) {
   return <input {...props} className={SELECT} />

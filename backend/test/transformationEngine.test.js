@@ -4,7 +4,14 @@ import { ADAPTADORES, obtenerAdaptador } from '../src/transformation-engine/regi
 import { clasificarPorPrerequisitos } from '../src/transformation-engine/engine.js'
 
 test('obtenerAdaptador devuelve null si el sistema destino no tiene adaptador registrado', () => {
-  assert.equal(obtenerAdaptador('EXCEL'), null)
+  // SIIGO sigue bloqueado (Fase 14) por falta de insumos oficiales propios.
+  assert.equal(obtenerAdaptador('SIIGO'), null)
+})
+
+test('obtenerAdaptador ya resuelve EXCEL, CSV (Fase 13) y WORDOFFICE (Fase 14)', () => {
+  assert.equal(obtenerAdaptador('EXCEL').codigo, 'EXCEL')
+  assert.equal(obtenerAdaptador('CSV').codigo, 'CSV')
+  assert.equal(obtenerAdaptador('WORDOFFICE').codigo, 'WORDOFFICE')
 })
 
 test('obtenerAdaptador devuelve el adaptador registrado por su código', () => {

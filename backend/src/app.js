@@ -7,6 +7,10 @@ import { documentosRouter } from './modules/documentos/documentos.routes.js'
 import { tercerosRouter } from './modules/terceros/terceros.routes.js'
 import { configuracionContableRouter } from './modules/configuracion-contable/configuracionContable.routes.js'
 import { mapeoRouter } from './modules/mapeo/mapeo.routes.js'
+import { inventarioRouter } from './modules/inventario/inventario.routes.js'
+import { exportacionesRouter } from './modules/exportaciones/exportaciones.routes.js'
+import { pagosRouter } from './modules/pagos/pagos.routes.js'
+import { bancosRouter } from './modules/bancos/bancos.routes.js'
 import { auditoriaRouter } from './audit/audit.routes.js'
 
 export function createApp() {
@@ -26,6 +30,10 @@ export function createApp() {
   app.use('/api/terceros', tercerosRouter)
   app.use('/api/config', configuracionContableRouter)
   app.use('/api/mapeos', mapeoRouter)
+  app.use('/api/inventario', inventarioRouter)
+  app.use('/api/exportaciones', exportacionesRouter)
+  app.use('/api/pagos', pagosRouter)
+  app.use('/api/bancos', bancosRouter)
   app.use('/api/auditoria', auditoriaRouter)
 
   app.use((req, res) => {

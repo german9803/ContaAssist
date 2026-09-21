@@ -7,6 +7,7 @@ import {
   rechazarDocumento,
   obtenerArchivoOriginalDeDocumento,
   obtenerResumen,
+  actualizarDetalleDocumento,
   DocumentoError,
 } from './documentos.service.js'
 
@@ -89,6 +90,20 @@ export async function postRechazar(req, res, next) {
     res.json(
       await rechazarDocumento({ empresaId: req.empresaId, documentoId: req.params.id, usuarioId: req.usuario.id, motivo }),
     )
+  } catch (error) {
+    manejarError(error, res, next)
+  }
+}
+
+export async function patchDetalle(req, res, next) {
+  try {
+    const documento = await actualizarDetalleDocumento({
+      empresaId: req.empresaId,
+      documentoId: req.params.id,
+      detalleId: req.params.detalleId,
+      cambios: req.body || {},
+    })
+    res.json(documento)
   } catch (error) {
     manejarError(error, res, next)
   }

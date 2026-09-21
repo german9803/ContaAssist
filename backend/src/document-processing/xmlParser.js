@@ -25,7 +25,39 @@ function numeroDe(nodo) {
   return Number.isFinite(num) ? num : null
 }
 
+function comoArray(valor) {
+  if (valor === undefined || valor === null) return []
+  return Array.isArray(valor) ? valor : [valor]
+}
+
 const PORCENTAJE_A_CODIGO_IVA = { 19: 'IVA_19', 5: 'IVA_5', 0: 'IVA_0' }
+
+// cac:InvoiceLine (Fase 14) — a diferencia de la cabecera, el detalle por
+// línea es opcional para el resto del sistema (documento_detalles.producto_id
+// es nullable), así que un error aquí nunca invalida la factura completa:
+// se documenta como advertencia y el documento queda sin líneas.
+function extraerLineas(invoice) {
+  try {
+    return comoArray(invoice.InvoiceLine).map((linea) => {
+      const item = primero(linea.Item)
+      const precio = primero(linea.Price)
+      const cantidadNodo = linea.InvoicedQuantity
+      return {
+        descripcion: textoDe(item?.Description) || textoDe(linea.ID) || 'Ítem sin descripción',
+        codigoProducto:
+          textoDe(primero(item?.SellersItemIdentification)?.ID) ||
+          textoDe(primero(item?.StandardItemIdentification)?.ID) ||
+          null,
+        unidadMedida: cantidadNodo?.['@_unitCode'] ?? null,
+        cantidad: numeroDe(cantidadNodo) ?? 1,
+        valorUnitario: numeroDe(precio?.PriceAmount) ?? 0,
+        subtotalLinea: numeroDe(linea.LineExtensionAmount) ?? 0,
+      }
+    })
+  } catch {
+    return []
+  }
+}
 
 export function parsearXmlFactura(buffer) {
   const errores = []
@@ -93,5 +125,6 @@ export function parsearXmlFactura(buffer) {
     total,
     iva,
     codigoImpuestoIva,
+    lineas: extraerLineas(invoice),
   }
 }

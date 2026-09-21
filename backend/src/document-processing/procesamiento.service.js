@@ -1,9 +1,11 @@
 import { prisma } from '../shared/prisma.js'
 import { buscarOCrearTercero } from './terceros.interno.js'
+import { buscarOCrearProducto } from './productos.interno.js'
 import { parsearCsv } from './csvParser.js'
 import { parsearXlsx } from './xlsxParser.js'
 import { parsearXmlFactura } from './xmlParser.js'
 import { extraerTextoPdf } from './pdfParser.js'
+import { extraerTextoImagen } from './ocrParser.js'
 import { ejecutarValidaciones } from '../validation-engine/engine.js'
 import { tipoTerceroSegunDocumento } from './tiposDocumento.js'
 
@@ -46,6 +48,33 @@ async function crearDocumentoDesdeBorrador({ empresaId, archivoOrigenId, borrado
         data: { documentoId: documento.id, impuestoId, base: borrador.subtotal ?? 0, valor: borrador.iva },
       })
     }
+  }
+
+  // Fase 14: detalle por línea (producto/cantidad/valor unitario), opcional —
+  // hoy solo lo trae el XML (cac:InvoiceLine) y la plantilla propia de
+  // ContaAssist cuando incluye las columnas de línea. La bodega NO se resuelve
+  // por defecto (no hay clave natural confiable para autocrear un lugar
+  // físico): si la fila trae bodega_codigo se usa solo si ya existe en el
+  // catálogo de la empresa; si no, queda sin asignar para completarse en revisión.
+  for (const linea of borrador.lineas || []) {
+    const producto = await buscarOCrearProducto({ empresaId, codigo: linea.codigoProducto, descripcion: linea.descripcion })
+    const bodega = linea.codigoBodega
+      ? await prisma.bodega.findUnique({ where: { empresaId_codigo: { empresaId, codigo: linea.codigoBodega } } })
+      : null
+
+    await prisma.documentoDetalle.create({
+      data: {
+        documentoId: documento.id,
+        productoId: producto.id,
+        bodegaId: bodega?.id ?? null,
+        descripcion: linea.descripcion,
+        cantidad: linea.cantidad,
+        valorUnitario: linea.valorUnitario,
+        subtotalLinea: linea.subtotalLinea,
+        porcentajeIva: linea.porcentajeIva,
+        descuento: linea.descuento,
+      },
+    })
   }
 
   return documento
@@ -152,11 +181,15 @@ async function despacharPorTipo({ empresaId, archivoOrigenId, tipoOrigen, buffer
   }
 
   if (tipoOrigen === 'JPG' || tipoOrigen === 'PNG') {
+    const { texto, confianza, error } = await extraerTextoImagen(buffer)
     documentosCreados.push(
       await crearDocumentoShell({
         empresaId,
         archivoOrigenId,
-        observaciones: 'Imagen recibida. La extracción automática de datos requiere OCR (Fase 16) — completa los campos manualmente.',
+        textoExtraido: texto,
+        observaciones: texto
+          ? `Texto reconocido por OCR (confianza ${confianza !== null ? Math.round(confianza) : '?'}%). Revisa y completa los campos contables manualmente — el OCR no se usa para llenarlos automáticamente.`
+          : `No se pudo reconocer texto en la imagen${error ? ` (${error})` : ''}. Completa los campos manualmente.`,
       }),
     )
     return { exito: true, documentosCreados, erroresFilas: [] }

@@ -5,6 +5,10 @@ import {
   upsertMapeoFormaPago,
   listarMapeoTerceros,
   upsertMapeoTercero,
+  listarMapeoBodegas,
+  upsertMapeoBodega,
+  listarMapeoProductos,
+  upsertMapeoProducto,
   MapeoError,
 } from './mapeo.service.js'
 
@@ -82,6 +86,56 @@ export async function postMapeoTercero(req, res, next) {
         usuarioId: req.usuario.id,
         sistemaDestinoCodigo: sistemaDestino,
         terceroId,
+        codigoDestino,
+      }),
+    )
+  } catch (error) {
+    manejarError(error, res, next)
+  }
+}
+
+export async function getMapeoBodegas(req, res, next) {
+  try {
+    res.json(await listarMapeoBodegas({ empresaId: req.empresaId, sistemaDestinoCodigo: req.query.sistemaDestino }))
+  } catch (error) {
+    manejarError(error, res, next)
+  }
+}
+
+export async function postMapeoBodega(req, res, next) {
+  try {
+    const { sistemaDestino, bodegaId, codigoDestino } = req.body || {}
+    res.status(201).json(
+      await upsertMapeoBodega({
+        empresaId: req.empresaId,
+        usuarioId: req.usuario.id,
+        sistemaDestinoCodigo: sistemaDestino,
+        bodegaId,
+        codigoDestino,
+      }),
+    )
+  } catch (error) {
+    manejarError(error, res, next)
+  }
+}
+
+export async function getMapeoProductos(req, res, next) {
+  try {
+    res.json(await listarMapeoProductos({ empresaId: req.empresaId, sistemaDestinoCodigo: req.query.sistemaDestino }))
+  } catch (error) {
+    manejarError(error, res, next)
+  }
+}
+
+export async function postMapeoProducto(req, res, next) {
+  try {
+    const { sistemaDestino, productoId, codigoDestino } = req.body || {}
+    res.status(201).json(
+      await upsertMapeoProducto({
+        empresaId: req.empresaId,
+        usuarioId: req.usuario.id,
+        sistemaDestinoCodigo: sistemaDestino,
+        productoId,
         codigoDestino,
       }),
     )

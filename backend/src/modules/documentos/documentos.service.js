@@ -41,6 +41,21 @@ function serializarDocumento(doc, validaciones) {
     impuestos: doc.impuestos
       ? doc.impuestos.map((i) => ({ codigo: i.impuesto.codigo, base: i.base, valor: i.valor }))
       : undefined,
+    detalles: doc.detalles
+      ? doc.detalles.map((d) => ({
+          id: d.id,
+          descripcion: d.descripcion,
+          cantidad: d.cantidad,
+          valorUnitario: d.valorUnitario,
+          subtotalLinea: d.subtotalLinea,
+          porcentajeIva: d.porcentajeIva,
+          descuento: d.descuento,
+          producto: d.producto ? { id: d.producto.id, codigo: d.producto.codigo, nombre: d.producto.nombre } : null,
+          bodega: d.bodega ? { id: d.bodega.id, codigo: d.bodega.codigo, nombre: d.bodega.nombre } : null,
+          cuentaContable: d.cuentaContable ? { id: d.cuentaContable.id, codigo: d.cuentaContable.codigo, nombre: d.cuentaContable.nombre } : null,
+          centroCosto: d.centroCosto ? { id: d.centroCosto.id, codigo: d.centroCosto.codigo, nombre: d.centroCosto.nombre } : null,
+        }))
+      : undefined,
     validaciones,
     hayBloqueante: Array.isArray(validaciones)
       ? validaciones.some((v) => v.severidad === 'BLOQUEANTE' && v.resultado === 'FALLA')
@@ -56,6 +71,7 @@ const INCLUYE_DETALLE = {
   formaPago: true,
   archivoOrigen: { select: { cargaId: true, nombreOriginal: true, extension: true } },
   impuestos: { include: { impuesto: true } },
+  detalles: { include: { producto: true, bodega: true, cuentaContable: true, centroCosto: true } },
 }
 
 function construirFiltro({ empresaId, estado, tipoDocumento, tercero, fechaDesde, fechaHasta }) {
@@ -283,6 +299,37 @@ export async function rechazarDocumento({ empresaId, documentoId, usuarioId, mot
     valorNuevo: 'RECHAZADO',
   })
 
+  const validaciones = await obtenerUltimosResultados(documentoId)
+  return serializarDocumento(actualizado, validaciones)
+}
+
+// Fase 14: asigna producto/bodega/cuenta/centro de una línea ya existente
+// (parseada del XML o de la plantilla propia) — no crea ni borra líneas, solo
+// completa la asignación durante la revisión, igual que los selects de
+// cabecera de Fase 11.
+export async function actualizarDetalleDocumento({ empresaId, documentoId, detalleId, cambios }) {
+  const documento = await prisma.documento.findFirst({ where: { id: documentoId, empresaId } })
+  if (!documento) throw new DocumentoError('Documento no encontrado', 404)
+
+  const detalle = await prisma.documentoDetalle.findFirst({ where: { id: detalleId, documentoId } })
+  if (!detalle) throw new DocumentoError('Línea de detalle no encontrada', 404)
+
+  const data = {}
+  if (cambios.productoCodigo !== undefined) {
+    data.productoId = await resolverCatalogo(prisma.producto, empresaId, cambios.productoCodigo, 'Producto')
+  }
+  if (cambios.bodegaCodigo !== undefined) {
+    data.bodegaId = await resolverCatalogo(prisma.bodega, empresaId, cambios.bodegaCodigo, 'Bodega')
+  }
+  if (cambios.cuentaContableCodigo !== undefined) {
+    data.cuentaContableId = await resolverCatalogo(prisma.cuentaContable, empresaId, cambios.cuentaContableCodigo, 'Cuenta contable')
+  }
+  if (cambios.centroCostoCodigo !== undefined) {
+    data.centroCostoId = await resolverCatalogo(prisma.centroCosto, empresaId, cambios.centroCostoCodigo, 'Centro de costo')
+  }
+
+  await prisma.documentoDetalle.update({ where: { id: detalleId }, data })
+  const actualizado = await prisma.documento.findUniqueOrThrow({ where: { id: documentoId }, include: INCLUYE_DETALLE })
   const validaciones = await obtenerUltimosResultados(documentoId)
   return serializarDocumento(actualizado, validaciones)
 }

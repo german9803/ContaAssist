@@ -11,7 +11,13 @@ import { DocumentoDetallePage } from './pages/DocumentoDetallePage.jsx'
 import { ComprasPage } from './pages/ComprasPage.jsx'
 import { VentasPage } from './pages/VentasPage.jsx'
 import { TercerosPage } from './pages/TercerosPage.jsx'
+import { CuentasPorPagarPage } from './pages/CuentasPorPagarPage.jsx'
+import { CarteraPage } from './pages/CarteraPage.jsx'
+import { BancosPage } from './pages/BancosPage.jsx'
+import { ExtractoDetallePage } from './pages/ExtractoDetallePage.jsx'
 import { MapeoPage } from './pages/MapeoPage.jsx'
+import { InventarioPage } from './pages/InventarioPage.jsx'
+import { ExportacionesPage } from './pages/ExportacionesPage.jsx'
 import { ConfiguracionPage } from './pages/ConfiguracionPage.jsx'
 import { MODULOS } from './lib/navegacion.js'
 
@@ -30,7 +36,13 @@ function App() {
           <Route path="/compras" element={<ComprasPage />} />
           <Route path="/ventas" element={<VentasPage />} />
           <Route path="/terceros" element={<TercerosPage />} />
+          <Route path="/cuentas-por-pagar" element={<CuentasPorPagarPage />} />
+          <Route path="/cartera" element={<CarteraPage />} />
+          <Route path="/bancos" element={<BancosPage />} />
+          <Route path="/bancos/extractos/:id" element={<ExtractoDetallePage />} />
           <Route path="/mapeo" element={<MapeoPage />} />
+          <Route path="/inventario" element={<InventarioPage />} />
+          <Route path="/exportaciones" element={<ExportacionesPage />} />
           <Route path="/configuracion" element={<ConfiguracionPage />} />
 
           {MODULOS.filter((m) => !m.implementado).map(({ path, label, fase, nota }) => (
